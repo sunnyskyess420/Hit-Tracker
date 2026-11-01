@@ -1449,6 +1449,31 @@ function deleteBustup(id){
   renderAll();
 }
 
+/* --- Log past smoking (backfill a day with total grams smoked) --- */
+// Creates a single hit entry dated to the selected day with the entered gram amount.
+// Useful for catching up when you start tracking mid-stash.
+function logPastSmoking(dateKey){
+  const amount = +document.getElementById("pastSmokeAmount").value || 0;
+  const device = document.getElementById("pastSmokeDevice").value;
+  const note = document.getElementById("pastSmokeNote").value.trim();
+  if (amount <= 0){ toast("Enter grams smoked"); return; }
+  // Date the hit to noon on the selected day
+  const time = new Date(dateKey + "T12:00:00").toISOString();
+  log.push(migrateEntry({
+    id: Date.now() + Math.random(),
+    time: time,
+    size: "Medium",
+    device: device,
+    note: note || "past smoking",
+    amount: amount  // explicit gram amount — this is the key
+  }));
+  saveLog();
+  renderAll();
+  // Reopen the day modal to show the new entry
+  openDay(dateKey);
+  vib(12); toast("Logged " + gramsFmt(amount) + " smoked on " + dateKey);
+}
+
 /* --- Reup editor (right-click a calendar day to mark/remove reups) --- */
 // Reups are stored as stash "buy" entries. This lets you backfill or fix the date
 // of a reup without opening the full stash modal.
@@ -1655,6 +1680,20 @@ function openDay(k){
       </div><button onclick="deleteBustup('${b.id}');openDay('${k}')">✕</button></div>`;
     }).join("");
   }
+  // Log past smoking — enter total grams smoked this day (backfill)
+  html += `
+    <div style="margin-bottom:12px;padding:10px;background:var(--surface2);border-radius:10px;border:1px solid var(--border2)">
+      <label style="margin:0 0 6px">Log smoking for this day (backfill)</label>
+      <div class="search-row" style="margin:0">
+        <input type="number" id="pastSmokeAmount" step="0.01" min="0" placeholder="grams smoked" style="flex:1;min-width:80px">
+        <select id="pastSmokeDevice" style="flex:1;min-width:80px">
+          ${DEFAULT_DEVICES.map(d=>`<option ${d===settings.lastDevice?"selected":""}>${d}</option>`).join("")}
+        </select>
+      </div>
+      <input type="text" id="pastSmokeNote" placeholder="optional note" style="margin-top:6px">
+      <button class="secondary" style="background:var(--green);color:#fff;width:100%;margin-top:8px" onclick="logPastSmoking('${k}')">Add smoking for this day</button>
+    </div>
+  `;
   if (ci){
     html += `<div class="grid" style="margin-bottom:10px">
       <div class="stat small"><b>${ci.sleep}</b><span>sleep</span></div>
