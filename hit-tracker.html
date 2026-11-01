@@ -466,9 +466,42 @@
       <button class="secondary" onclick="exportCSV()">Export CSV</button>
       <button class="secondary" onclick="exportJSON()">Backup JSON</button>
       <button class="secondary" onclick="document.getElementById('importFile').click()">Import JSON</button>
+      <button class="secondary" onclick="openReportModal()">🖨️ Print report</button>
       <button class="secondary danger" onclick="clearAll()">Clear all</button>
     </div>
     <input type="file" id="importFile" accept=".json" class="hidden" onchange="importJSON(event)">
+  </div>
+
+  <!-- ===== REPORT MODAL (pick date range, then generate printable PDF) ===== -->
+  <div id="reportModal" class="overlay hidden" onclick="if(event.target===this)closeModal('reportModal')">
+    <div class="sheet">
+      <button class="sheet-close" onclick="closeModal('reportModal')">×</button>
+      <h2>Printable report</h2>
+      <p class="tiny" style="margin-top:0">Pick a date range. The report opens in a new window — use your browser's "Save as PDF" (Ctrl/Cmd+P → Destination → Save as PDF).</p>
+
+      <div class="search-row" style="margin-top:12px">
+        <label style="flex:1">From
+          <input type="date" id="reportFrom" style="width:100%" onchange="updateReportPreview()">
+        </label>
+        <label style="flex:1">To
+          <input type="date" id="reportTo" style="width:100%" onchange="updateReportPreview()">
+        </label>
+      </div>
+
+      <div class="search-row" style="margin-top:8px">
+        <button class="secondary" style="flex:1" onclick="setReportRange(7)">Last 7 days</button>
+        <button class="secondary" style="flex:1" onclick="setReportRange(30)">Last 30 days</button>
+        <button class="secondary" style="flex:1" onclick="setReportRange('month')">This month</button>
+        <button class="secondary" style="flex:1" onclick="setReportRange('all')">All time</button>
+      </div>
+
+      <p class="tiny" id="reportPreview" style="margin-top:10px"></p>
+
+      <div class="row" style="margin-top:12px">
+        <button class="secondary" onclick="closeModal('reportModal')">Cancel</button>
+        <button class="secondary" style="background:var(--green);color:#fff;font-weight:700" onclick="generateReport()">Generate report</button>
+      </div>
+    </div>
   </div>
 
   <!-- ===== CHARTS & REPORTS (moved to bottom) ===== -->
@@ -2089,6 +2122,422 @@ function download(filename, content, type){
   a.download=filename; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
+/* ===================================================================
+   PRINTABLE REPORT — opens a clean, light, print-optimized window.
+   The user saves it as PDF via the browser's print dialog
+   (Ctrl/Cmd+P → Destination → Save as PDF).
+   =================================================================== */
+
+// Open the report modal with a sensible default (last 30 days).
+function openReportModal(){
+  setReportRange(30);
+  document.getElementById("reportModal").classList.remove("hidden");
+}
+
+// Set the from/to date inputs from a preset: 7, 30, "month", or "all".
+function setReportRange(preset){
+  const to = new Date(); to.setHours(23,59,59,999);
+  let from;
+  if (preset === "all"){
+    const times = []
+      .concat(log.map(x=>+new Date(x.time)))
+      .concat(stash.map(s=>+new Date(s.date)))
+      .concat(bustups.map(b=>+new Date(b.date)));
+    from = times.length ? new Date(Math.min.apply(null, times)) : new Date(Date.now()-29*86400000);
+  } else if (preset === "month"){
+    from = new Date(to.getFullYear(), to.getMonth(), 1);
+  } else {
+    const days = +preset || 30;
+    from = new Date(Date.now() - (days-1)*86400000);
+  }
+  from.setHours(0,0,0,0);
+  document.getElementById("reportFrom").value = dayKey(from);
+  document.getElementById("reportTo").value = dayKey(to);
+  updateReportPreview();
+}
+
+// Read the date inputs → {from, to} as Date objects (from=start of day, to=end of day).
+function reportDates(){
+  const f = document.getElementById("reportFrom").value;
+  const t = document.getElementById("reportTo").value;
+  if (!f || !t) return {from:null, to:null};
+  return { from:new Date(f+"T00:00:00"), to:new Date(t+"T23:59:59") };
+}
+
+// Live preview line under the date pickers.
+function updateReportPreview(){
+  const {from, to} = reportDates();
+  const el = document.getElementById("reportPreview");
+  if (!from || !to){ el.textContent = ""; return; }
+  const inR = d => { const t=new Date(d); return t>=from && t<=to; };
+  const hits = log.filter(x=>inR(x.time)).length;
+  const grams = log.filter(x=>inR(x.time)).reduce((s,x)=>s+entryAmount(x),0);
+  const busts = bustups.filter(b=>inR(b.date+"T12:00:00")).length;
+  const cis = checkins.filter(c=>inR(c.date+"T12:00:00")).length;
+  const days = Math.max(1, Math.round((to-from)/86400000)+1);
+  el.textContent = `${days} days • ${hits} hits • ${grams.toFixed(2)}g • ${busts} bust-ups • ${cis} check-ins`;
+}
+
+// --- Small SVG chart helpers (no Chart.js dependency → reliable in a popup) ---
+function svgVBars(data, opts){
+  opts = opts || {};
+  const W = opts.width || 520, H = opts.height || 170, pad = 26;
+  const max = Math.max(0.001, ...data.map(d=>d.value));
+  const n = Math.max(1, data.length);
+  const slot = (W - pad*2) / n;
+  const bw = Math.min(34, slot - 3);
+  let bars = "";
+  data.forEach((d,i)=>{
+    const bh = (d.value/max) * (H - pad*2);
+    const x = pad + i*slot + (slot-bw)/2;
+    const y = H - pad - bh;
+    const col = d.color || "#4caf50";
+    bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${col}" rx="2"/>`;
+    if (d.value > 0) bars += `<text x="${(x+bw/2).toFixed(1)}" y="${(y-3).toFixed(1)}" font-size="8" text-anchor="middle" fill="#333">${(+d.value.toFixed(2))}</text>`;
+    if (d.label) bars += `<text x="${(x+bw/2).toFixed(1)}" y="${(H-pad+13).toFixed(1)}" font-size="${opts.labelSize||8}" text-anchor="middle" fill="#666" transform="rotate(${opts.rotate||0} ${(x+bw/2).toFixed(1)} ${(H-pad+13).toFixed(1)})">${escSVG(d.label)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto;font-family:sans-serif"><line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#ddd"/>${bars}</svg>`;
+}
+function svgHBars(data, opts){
+  opts = opts || {};
+  const W = opts.width || 520, rowH = 22, pad = 110, top = 8;
+  const H = top + data.length*rowH + 8;
+  const max = Math.max(0.001, ...data.map(d=>d.value));
+  let rows = "";
+  data.forEach((d,i)=>{
+    const y = top + i*rowH;
+    const bw = (d.value/max) * (W - pad - 30);
+    const col = d.color || "#4caf50";
+    rows += `<text x="${pad-8}" y="${(y+14).toFixed(1)}" font-size="10" text-anchor="end" fill="#444">${escSVG(d.label)}</text>`;
+    rows += `<rect x="${pad}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="14" fill="${col}" rx="2"/>`;
+    rows += `<text x="${(pad+bw+4).toFixed(1)}" y="${(y+12).toFixed(1)}" font-size="9" fill="#333">${(+d.value.toFixed(2))}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto;font-family:sans-serif">${rows}</svg>`;
+}
+function escSVG(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+// --- Build and open the report ---
+function generateReport(){
+  const {from, to} = reportDates();
+  if (!from || !to){ toast("Pick a date range"); return; }
+  if (from > to){ toast("Start date is after end date"); return; }
+  closeModal("reportModal");
+
+  const inR = d => { const t=new Date(d); return t>=from && t<=to; };
+  const rLog     = log.filter(x=>inR(x.time)).sort((a,b)=>new Date(a.time)-new Date(b.time));
+  const rBustups = bustups.filter(b=>inR(b.date+"T12:00:00"));
+  const rReups   = stash.filter(s=>s.type!=="giveaway" && inR(s.date));
+  const rGive    = stash.filter(s=>s.type==="giveaway" && inR(s.date));
+  const rCheckins= checkins.filter(c=>inR(c.date+"T12:00:00"));
+
+  // ----- Summary stats -----
+  const totalHits  = rLog.length;
+  const totalGrams = rLog.reduce((s,x)=>s+entryAmount(x),0);
+  const totalCost  = rLog.reduce((s,x)=>s+hitCost(x),0);
+  const daysSpan   = Math.max(1, Math.round((to-from)/86400000)+1);
+  const avgDay     = totalGrams / daysSpan;
+  const smokedDays = new Set(rLog.map(x=>dayKey(x.time))).size;
+  const avgSmokedDay = smokedDays ? totalGrams/smokedDays : 0;
+  const biggestDay = (()=>{
+    let best = {k:null, g:0};
+    const map = {};
+    rLog.forEach(x=>{ const k=dayKey(x.time); map[k]=(map[k]||0)+entryAmount(x); });
+    Object.keys(map).forEach(k=>{ if (map[k]>best.g) best={k,g:map[k]}; });
+    return best;
+  })();
+
+  // ----- Stash snapshot (current, as of today) -----
+  const sb = stashBreakdown();
+  const ppg = effectivePricePerGram();
+
+  // ----- Daily breakdown rows -----
+  const dayRows = [];
+  for (let d=new Date(from); d<=to; d.setDate(d.getDate()+1)){
+    const k = dayKey(d);
+    const dLog = rLog.filter(x=>dayKey(x.time)===k);
+    const dGrams = dLog.reduce((s,x)=>s+entryAmount(x),0);
+    const dCost = dLog.reduce((s,x)=>s+hitCost(x),0);
+    const dBusts = rBustups.filter(b=>b.date===k).length;
+    const dReups = rReups.filter(r=>dayKey(r.date)===k).reduce((s,r)=>s+(+r.amount||0),0);
+    const ci = checkinFor(k);
+    dayRows.push({k, date:new Date(d), hits:dLog.length, grams:dGrams, cost:dCost, busts:dBusts, reups:dReups, ci});
+  }
+
+  // ----- Calendar month grids -----
+  const months = [];
+  let mcur = new Date(from.getFullYear(), from.getMonth(), 1);
+  const mEnd = new Date(to.getFullYear(), to.getMonth(), 1);
+  while (mcur <= mEnd){ months.push(new Date(mcur)); mcur.setMonth(mcur.getMonth()+1); }
+  function gramsForDay(k){ return dayRows.find(x=>x.k===k)?.grams || 0; }
+  function dayInBust(k){ return rBustups.some(b=>b.date===k); }
+  function dayInReup(k){ return rReups.some(r=>dayKey(r.date)===k); }
+  const maxDayG = Math.max(0.001, ...dayRows.map(x=>x.grams));
+  function calMonth(mDate){
+    const y=mDate.getFullYear(), mo=mDate.getMonth();
+    const first = new Date(y,mo,1);
+    const dim = new Date(y,mo+1,0).getDate();
+    const startDow = first.getDay();
+    const name = mDate.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+    let cells = "";
+    for (let i=0;i<startDow;i++) cells += `<td class="cal-empty"></td>`;
+    for (let dd=1; dd<=dim; dd++){
+      const k = `${y}-${String(mo+1).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;
+      const cellDate = new Date(y,mo,dd);
+      const inSpan = cellDate>=from && cellDate<=to;
+      const g = gramsForDay(k);
+      const intensity = maxDayG>0 ? Math.min(1, g/maxDayG) : 0;
+      const shade = g>0 ? `background:rgba(76,175,80,${0.25+intensity*0.6})` : "";
+      const mark = (dayInBust(k)?"<sup>✕</sup>":"") + (dayInReup(k)?"<sup>↻</sup>":"");
+      const cls = inSpan ? "cal-day" : "cal-day cal-out";
+      cells += `<td class="${cls}" style="${shade}">${dd}${mark}</td>`;
+    }
+    return `<div class="cal-block"><div class="cal-title">${escSVG(name)}</div>`+
+      `<table class="cal"><tr><th>S</th><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th></tr>`+
+      `<tr>${cells}</tr></table></div>`;
+  }
+
+  // ----- Charts -----
+  // Daily grams over range (vertical bars; label every ~7th)
+  const dailyChartData = dayRows.map((x,i)=>({
+    label: (i % 7 === 0 || i === dayRows.length-1) ? x.date.toLocaleDateString(undefined,{month:"numeric",day:"numeric"}) : "",
+    value: x.grams
+  }));
+  const dailyChart = dayRows.length ? svgVBars(dailyChartData, {width:560, height:180, rotate:0}) : "<p class='muted'>No data.</p>";
+
+  // By device
+  const devMap = {};
+  rLog.forEach(x=>{ const d=x.device||"Unknown"; devMap[d]=(devMap[d]||0)+entryAmount(x); });
+  const devChart = Object.keys(devMap).length
+    ? svgHBars(Object.keys(devMap).sort((a,b)=>devMap[b]-devMap[a]).map(d=>({label:d, value:devMap[d], color:"#4caf50"})), {width:520})
+    : "<p class='muted'>No data.</p>";
+
+  // By weekday
+  const dowNames=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const dowMap=[0,0,0,0,0,0,0];
+  rLog.forEach(x=>{ dowMap[new Date(x.time).getDay()]+=entryAmount(x); });
+  const dowChart = svgVBars(dowNames.map((n,i)=>({label:n, value:dowMap[i], color:"#2e7d32"})), {width:360, height:150});
+
+  // By size
+  const sizeMap = {};
+  rLog.forEach(x=>{ const s=x.size||"—"; sizeMap[s]=(sizeMap[s]||0)+1; });
+  const sizeChart = Object.keys(sizeMap).length
+    ? svgHBars(Object.keys(sizeMap).sort((a,b)=>sizeMap[b]-sizeMap[a]).map(s=>({label:s, value:sizeMap[s], color:"#7e57c2"})), {width:520})
+    : "<p class='muted'>No data.</p>";
+
+  // ----- Mood / sleep -----
+  const moodAvg = field => {
+    const vs = rCheckins.filter(c=>c[field]!=null).map(c=>+c[field]);
+    return vs.length ? (vs.reduce((a,b)=>a+b,0)/vs.length).toFixed(1) : "—";
+  };
+  const moodFields = [["sleep","Sleep quality"],["mood","Overall mood"],["productivity","Productivity"],["wellbeing","Well-being"]];
+  // higher vs lower use days
+  let corrHtml = "<p class='muted'>Not enough check-ins in range to compare.</p>";
+  if (rCheckins.length >= 4){
+    const ciDays = rCheckins.map(c=>({k:c.date, g:dayRows.find(x=>x.k===c.date)?.grams||0, ci:c}));
+    const med = (()=>{ const gs=ciDays.map(d=>d.g).sort((a,b)=>a-b); return gs[Math.floor(gs.length/2)]; })();
+    const higher = ciDays.filter(d=>d.g>med), lower = ciDays.filter(d=>d.g<=med);
+    if (higher.length && lower.length){
+      const avg = (arr,f)=>arr.length?(arr.reduce((s,x)=>s+(+x.ci[f]||0),0)/arr.length).toFixed(1):"—";
+      corrHtml = `<table class="mini"><thead><tr><th>Metric</th><th>Higher-use days</th><th>Lower-use days</th></tr></thead><tbody>`+
+        moodFields.map(([f,l])=>`<tr><td>${l}</td><td>${avg(higher,f)}</td><td>${avg(lower,f)}</td></tr>`).join("")+
+        `</tbody></table>`;
+    }
+  }
+
+  // ----- Format helpers -----
+  const fdate = d => d.toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"});
+  const fdatetime = d => d.toLocaleString();
+  const rangeStr = `${fdate(from)} – ${fdate(to)}`;
+  const genStr = new Date().toLocaleString();
+  const money2 = n => (n==null||isNaN(n)) ? "—" : "$"+Number(n).toFixed(2);
+
+  // ----- Daily list table (only days with activity, to keep it short) -----
+  const activeRows = dayRows.filter(x=>x.hits>0||x.busts>0||x.reups>0||x.ci);
+  const dailyTable = activeRows.length ? (
+    `<table class="data"><thead><tr>
+      <th>Date</th><th>Hits</th><th>Grams</th><th>Cost</th><th>✕</th><th>↻ Reup</th><th>Sleep</th><th>Mood</th>
+    </tr></thead><tbody>`+
+    activeRows.map(x=>`<tr>
+      <td>${escSVG(x.date.toLocaleDateString(undefined,{month:"short",day:"numeric"}))}</td>
+      <td>${x.hits}</td>
+      <td>${x.grams?x.grams.toFixed(2):"—"}</td>
+      <td>${x.cost?money2(x.cost):"—"}</td>
+      <td>${x.busts||""}</td>
+      <td>${x.reups?x.reups.toFixed(0)+"g":""}</td>
+      <td>${x.ci&&x.ci.sleep!=null?x.ci.sleep:"—"}</td>
+      <td>${x.ci&&x.ci.mood!=null?x.ci.mood:"—"}</td>
+    </tr>`).join("")+
+    `</tbody></table>`
+  ) : "<p class='muted'>No activity logged in this range.</p>";
+
+  // ----- Recent entries (last 20 in range) -----
+  const recent = rLog.slice(-20).reverse();
+  const recentHtml = recent.length ? (
+    `<table class="data"><thead><tr><th>When</th><th>Size</th><th>Device</th><th>Grams</th><th>Cost</th><th>Note</th></tr></thead><tbody>`+
+    recent.map(x=>`<tr>
+      <td>${escSVG(new Date(x.time).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}))}</td>
+      <td>${escSVG(x.size||"")}</td>
+      <td>${escSVG(x.device||"")}</td>
+      <td>${entryAmount(x)?entryAmount(x).toFixed(2):"—"}</td>
+      <td>${hitCost(x)?money2(hitCost(x)):"—"}</td>
+      <td>${escSVG(x.note||"")}</td>
+    </tr>`).join("")+
+    `</tbody></table>`
+  ) : "";
+
+  // ----- Assemble the full HTML document -----
+  const title = "Hit Tracker Report";
+  const css = `
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+         color:#1a1a1a;background:#fff;margin:0;padding:24px;line-height:1.5;font-size:12px;}
+    h1{font-size:22px;margin:0 0 4px;color:#1b5e20;}
+    h2{font-size:15px;margin:0 0 10px;padding-bottom:4px;border-bottom:2px solid #4caf50;color:#2e7d32;}
+    .meta{color:#666;font-size:11px;margin-bottom:18px;}
+    .section{margin-bottom:24px;padding:14px 16px;border:1px solid #e0e0e0;border-radius:8px;background:#fff;}
+    .page-break{page-break-before:always;}
+    table.stats{width:100%;border-collapse:collapse;margin:4px 0;}
+    table.stats td{padding:6px 8px;border:1px solid #eee;font-size:12px;}
+    table.stats td.lbl{background:#f5f5f5;font-weight:600;width:55%;}
+    table.stats td.val{text-align:right;font-weight:700;color:#1b5e20;}
+    table.data{width:100%;border-collapse:collapse;margin:6px 0;font-size:11px;}
+    table.data th{background:#4caf50;color:#fff;padding:5px 6px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.03em;}
+    table.data td{padding:4px 6px;border-bottom:1px solid #eee;}
+    table.data tbody tr:nth-child(even){background:#fafafa;}
+    .muted{color:#999;font-size:11px;}
+    .cal-block{display:inline-block;vertical-align:top;margin:0 18px 18px 0;}
+    .cal-title{font-weight:700;font-size:12px;margin-bottom:4px;color:#333;}
+    table.cal{border-collapse:collapse;font-size:10px;}
+    table.cal th{color:#999;padding:2px 4px;text-align:center;font-weight:400;width:26px;}
+    table.cal td{padding:0;text-align:center;width:26px;height:22px;border:1px solid #f0f0f0;position:relative;font-size:9px;color:#444;}
+    table.cal td.cal-empty{border:none;}
+    table.cal td.cal-out{color:#ccc;background:#fafafa;}
+    table.cal sup{font-size:7px;color:#b71c1c;font-weight:700;}
+    .chart-row{display:flex;gap:20px;flex-wrap:wrap;margin:8px 0;}
+    .chart-box{flex:1;min-width:260px;}
+    .chart-box h3{font-size:12px;margin:0 0 4px;color:#444;}
+    .legend{font-size:10px;color:#666;margin-top:6px;}
+    .badge{display:inline-block;padding:2px 8px;border-radius:10px;background:#e8f5e9;color:#1b5e20;font-size:10px;font-weight:600;margin-left:6px;}
+    .note-box{background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:8px 10px;font-size:10px;color:#5d4037;margin-top:10px;}
+    @media print{
+      body{padding:12px;}
+      .section{break-inside:avoid;}
+      .no-print{display:none;}
+    }
+  `;
+  const body = `
+    <div class="report-header">
+      <h1>${title} <span class="badge">PRIVATE</span></h1>
+      <div class="meta">Range: <b>${escSVG(rangeStr)}</b> &nbsp;•&nbsp; Generated: ${escSVG(genStr)} &nbsp;•&nbsp; ${daysSpan} days &nbsp;•&nbsp; ${totalHits} hits logged</div>
+    </div>
+
+    <div class="section">
+      <h2>Summary</h2>
+      <table class="stats">
+        <tr><td class="lbl">Total hits logged</td><td class="val">${totalHits}</td>
+            <td class="lbl">Total grams smoked</td><td class="val">${totalGrams.toFixed(2)} g</td></tr>
+        <tr><td class="lbl">Estimated cost</td><td class="val">${money2(totalCost)}</td>
+            <td class="lbl">Bust-ups in range</td><td class="val">${rBustups.length}</td></tr>
+        <tr><td class="lbl">Days in range</td><td class="val">${daysSpan}</td>
+            <td class="lbl">Days smoked</td><td class="val">${smokedDays}</td></tr>
+        <tr><td class="lbl">Average per day</td><td class="val">${avgDay.toFixed(3)} g</td>
+            <td class="lbl">Average per smoking day</td><td class="val">${avgSmokedDay.toFixed(3)} g</td></tr>
+        <tr><td class="lbl">Reups in range</td><td class="val">${rReups.length} (${rReups.reduce((s,r)=>s+(+r.amount||0),0).toFixed(0)}g)</td>
+            <td class="lbl">Given away / sold</td><td class="val">${rGive.length} (${rGive.reduce((s,r)=>s+(+r.amount||0),0).toFixed(0)}g)</td></tr>
+        <tr><td class="lbl">Biggest day</td><td class="val">${biggestDay.k?escSVG(biggestDay.k)+" ("+biggestDay.g.toFixed(2)+"g)":"—"}</td>
+            <td class="lbl">Check-ins in range</td><td class="val">${rCheckins.length}</td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>Stash breakdown <span class="muted" style="font-weight:400">(current snapshot, as of ${escSVG(fdate(new Date()))})</span></h2>
+      <table class="stats">
+        <tr><td class="lbl">↻ Acquired (reups)</td><td class="val">${sb.acquired.toFixed(2)} g</td>
+            <td class="lbl">− Given away / sold</td><td class="val">${sb.given.toFixed(2)} g</td></tr>
+        <tr><td class="lbl">− Busted up (ground)</td><td class="val">${sb.busted.toFixed(2)} g</td>
+            <td class="lbl">− Smoked (from hits)</td><td class="val">${sb.smoked.toFixed(2)} g</td></tr>
+        <tr><td class="lbl">= Nugs on hand (whole)</td><td class="val">${sb.nugsOnHand.toFixed(2)} g</td>
+            <td class="lbl">= Ground ready to smoke</td><td class="val">${sb.groundReady.toFixed(2)} g</td></tr>
+        <tr><td class="lbl">Total on hand</td><td class="val">${sb.totalOnHand.toFixed(2)} g</td>
+            <td class="lbl">Effective $/g</td><td class="val">${ppg>0?money2(ppg):"—"}</td></tr>
+        <tr><td class="lbl">Total spent (all time)</td><td class="val">${money2(sb.spent)}</td>
+            <td class="lbl">Grams per hit (setting)</td><td class="val">${(+settings.defaultGramsPerHit||0.02).toFixed(3)} g</td></tr>
+      </table>
+    </div>
+
+    <div class="section page-break">
+      <h2>Calendar</h2>
+      <div class="legend">Green shading = grams smoked that day (darker = more). <sup>✕</sup> = bust-up &nbsp; <sup>↻</sup> = reup.</div>
+      <div style="margin-top:8px">${months.map(calMonth).join("")}</div>
+    </div>
+
+    <div class="section page-break">
+      <h2>Daily breakdown</h2>
+      <div class="muted" style="margin-bottom:6px">Only days with activity are shown.</div>
+      ${dailyTable}
+    </div>
+
+    ${recent ? `<div class="section page-break">
+      <h2>Recent entries (last ${recent.length} in range)</h2>
+      ${recentHtml}
+    </div>` : ""}
+
+    <div class="section page-break">
+      <h2>Charts</h2>
+      <div class="chart-box" style="margin-bottom:14px">
+        <h3>Daily grams smoked</h3>
+        ${dailyChart}
+      </div>
+      <div class="chart-row">
+        <div class="chart-box"><h3>Grams by device</h3>${devChart}</div>
+        <div class="chart-box"><h3>Grams by weekday</h3>${dowChart}</div>
+      </div>
+      <div class="chart-row">
+        <div class="chart-box"><h3>Hits by size</h3>${sizeChart}</div>
+      </div>
+    </div>
+
+    <div class="section page-break">
+      <h2>Mood & sleep</h2>
+      <table class="stats" style="margin-bottom:14px">
+        ${moodFields.map(([f,l])=>`<tr><td class="lbl">Avg ${l}</td><td class="val">${moodAvg(f)} / 10</td></tr>`).join("")}
+      </table>
+      <h3 style="font-size:12px;color:#444;margin:10px 0 6px">Higher-use vs lower-use days</h3>
+      ${corrHtml}
+      <div class="note-box">Correlation is not causation — for personal awareness only. Not medical advice.</div>
+    </div>
+
+    <div class="no-print" style="margin-top:20px;text-align:center">
+      <button onclick="window.print()" style="padding:10px 24px;font-size:14px;background:#4caf50;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Print / Save as PDF</button>
+      <p class="muted" style="margin-top:8px">Tip: in the print dialog, choose "Save as PDF" as the destination. Set margins to "Default" and enable "Background graphics" for the calendar shading.</p>
+    </div>
+    <script>
+      // Auto-open the print dialog once the document is settled.
+      // Inline (rather than relying on the opener's onload) so it works
+      // reliably across browsers even with popup-window quirks.
+      (function(){
+        var fired = false;
+        function go(){ if (fired) return; fired = true; setTimeout(function(){ try { window.focus(); window.print(); } catch(e){} }, 600); }
+        if (document.readyState === "complete") go();
+        else window.addEventListener("load", go);
+      })();
+    <\/script>
+  `;
+
+  const doc = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escSVG(title)} — ${escSVG(rangeStr)}</title>
+    <style>${css}</style></head><body>${body}</body></html>`;
+
+  const w = window.open("", "_blank");
+  if (!w){ toast("Popup blocked — allow popups for this site to view the report"); return; }
+  w.document.open();
+  w.document.write(doc);
+  w.document.close();
+  // auto-trigger print after render settles (charts are inline SVG so no async load)
+  w.onload = function(){ setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 500); };
+}
+
 function exportCSV(){
   const cols=["Timestamp","Size","Device","Amount_g","Note","Cost","MoodBefore","MoodAfter","Stress","Energy","Sleep","Social","Tags"];
   const rows=[cols.join(",")];
