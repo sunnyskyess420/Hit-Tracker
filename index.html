@@ -399,11 +399,13 @@
     </div>
   </div>
 
-  <!-- ===== STASH CARD (grams left math + quick actions) ===== -->
+  <!-- ===== STASH CARD (two-stage: nugs → ground → smoked) ===== -->
   <div class="card">
     <h2>Weed left</h2>
     <div class="grid">
-      <div class="stat"><b id="stashGrams">—</b><span>Grams on hand</span></div>
+      <div class="stat"><b id="stashGrams">—</b><span>Total on hand</span></div>
+      <div class="stat"><b id="stashNugs">—</b><span>Nugs (whole)</span></div>
+      <div class="stat"><b id="stashGround">—</b><span>Ground (ready)</span></div>
       <div class="stat"><b id="stashHitsLeft">—</b><span>Hits remaining</span></div>
       <div class="stat"><b id="stashPricePerG">—</b><span>Effective $/g</span></div>
       <div class="stat"><b id="stashSpent">—</b><span>Total spent</span></div>
@@ -1144,6 +1146,23 @@ function gramsOnHand(){
   const used = log.reduce((s,x)=>s+entryAmount(x),0);
   return t.net - used;
 }
+// Total grams busted up (ground) from all bust-up markers
+function bustedUpTotal(){
+  return bustups.reduce((s,b)=>s+(+b.amount||0),0);
+}
+// Two-stage breakdown:
+//   nugsOnHand    = acquired - given - bustedUp   (whole weed not yet ground)
+//   groundReady   = bustedUp - smoked              (ground, ready to smoke)
+//   totalOnHand   = nugsOnHand + groundReady       (= acquired - given - smoked)
+function stashBreakdown(){
+  const t = stashTotals();
+  const busted = bustedUpTotal();
+  const smoked = log.reduce((s,x)=>s+entryAmount(x),0);
+  const nugsOnHand = Math.max(0, t.net - busted);     // whole weed left
+  const groundReady = Math.max(0, busted - smoked);    // ground weed in your jar, not yet smoked
+  const totalOnHand = Math.max(0, t.net - smoked);     // everything you still have (nugs + ground)
+  return { acquired: t.bought, given: t.given, net: t.net, busted, smoked, nugsOnHand, groundReady, totalOnHand, spent: t.spent };
+}
 // Estimated hits remaining at default grams-per-hit
 function hitsRemaining(){
   const onHand = gramsOnHand();
@@ -1199,17 +1218,17 @@ function renderCostStats(){
 
 /* --- Stash card rendering --- */
 function renderStash(){
-  const t = stashTotals();
-  const onHand = gramsOnHand();
+  const b = stashBreakdown();
   const hits = hitsRemaining();
   const ppg = effectivePricePerGram();
-  const usedGrams = log.reduce((s,x)=>s+entryAmount(x),0);
-  setText("stashGrams", gramsFmt(Math.max(0,onHand)));
+  setText("stashGrams", gramsFmt(b.totalOnHand));
+  setText("stashNugs", gramsFmt(b.nugsOnHand));
+  setText("stashGround", gramsFmt(b.groundReady));
   setText("stashPricePerG", ppg>0 ? money(ppg) : "—");
-  setText("stashHitsLeft", onHand > 0 ? hits : "—");
-  setText("stashSpent", t.spent>0 ? money(t.spent) : "—");
+  setText("stashHitsLeft", b.totalOnHand > 0 ? hits : "—");
+  setText("stashSpent", b.spent>0 ? money(b.spent) : "—");
 
-  // Weed math breakdown — shows exactly how "grams on hand" is calculated
+  // Weed math breakdown — two-stage: nugs → ground → smoked
   const mathEl = document.getElementById("weedMath");
   if (mathEl){
     if (stash.length === 0){
@@ -1218,10 +1237,17 @@ function renderStash(){
       const gph = +settings.defaultGramsPerHit || 0.02;
       const perHit = ppg > 0 ? ` &nbsp;<span class="tiny">${money(ppg)}/g × ${gph}g ≈ ${money(ppg*gph)}/hit</span>` : "";
       mathEl.innerHTML =
-        `<div class="row-line"><span class="lbl">↻ Acquired (reups)</span><span class="val">${gramsFmt(t.bought)}</span></div>` +
-        (t.given > 0 ? `<div class="row-line"><span class="lbl">− Given away / sold</span><span class="val">${gramsFmt(t.given)}</span></div>` : "") +
-        `<div class="row-line"><span class="lbl">− Smoked (from hits)</span><span class="val">${gramsFmt(usedGrams)}</span></div>` +
-        `<div class="row-line total"><span class="lbl">= On hand</span><span class="val">${gramsFmt(Math.max(0,onHand))}</span></div>` +
+        // Stage 1: nugs (whole weed)
+        `<div class="row-line"><span class="lbl">↻ Acquired (reups)</span><span class="val">${gramsFmt(b.acquired)}</span></div>` +
+        (b.given > 0 ? `<div class="row-line"><span class="lbl">− Given away / sold</span><span class="val">${gramsFmt(b.given)}</span></div>` : "") +
+        `<div class="row-line"><span class="lbl">− Busted up (✕ ground)</span><span class="val">${gramsFmt(b.busted)}</span></div>` +
+        `<div class="row-line total"><span class="lbl">= Nugs on hand</span><span class="val">${gramsFmt(b.nugsOnHand)}</span></div>` +
+        // Stage 2: ground weed (ready to smoke)
+        `<div class="row-line" style="margin-top:8px"><span class="lbl">✕ Ground, ready to smoke</span><span class="val">${gramsFmt(b.busted)}</span></div>` +
+        `<div class="row-line"><span class="lbl">− Smoked (from hits)</span><span class="val">${gramsFmt(b.smoked)}</span></div>` +
+        `<div class="row-line total"><span class="lbl">= Ground remaining</span><span class="val">${gramsFmt(b.groundReady)}</span></div>` +
+        // Grand total
+        `<div class="row-line total" style="border-top:2px solid var(--border2);margin-top:6px;padding-top:8px;font-size:16px"><span class="lbl">Total on hand</span><span class="val" style="font-size:18px">${gramsFmt(b.totalOnHand)}</span></div>` +
         (perHit ? `<div class="tiny" style="margin-top:6px">${perHit}</div>` : "");
     }
   }
