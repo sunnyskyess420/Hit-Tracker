@@ -217,6 +217,8 @@
   .entry .tagline i{background:#2a2f36;color:#bcd;border-radius:4px;padding:1px 5px;font-style:normal;font-size:10px;margin-right:3px}
   .entry button{background:none;border:none;color:#ff7b7b;font-size:16px;cursor:pointer;padding:0 4px}
   .pill{display:inline-block;background:var(--surface2);border:1px solid var(--border2);border-radius:999px;padding:2px 8px;font-size:11px;color:var(--muted);margin-right:4px}
+  .load-more{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
+  .load-more button{padding:9px 18px;font-size:13px}
 
   /* ---------- Charts ---------- */
   canvas{max-height:230px}
@@ -454,12 +456,12 @@
   <div class="card">
     <h2>Entries</h2>
     <div class="search-row">
-      <input type="search" id="searchBox" placeholder="Search notes, tags, device…" oninput="renderEntries()">
+      <input type="search" id="searchBox" placeholder="Search notes, tags, device…" oninput="entriesFilterChanged()">
     </div>
     <div class="search-row">
-      <select id="filterDevice" onchange="renderEntries()"><option value="">All devices</option></select>
-      <select id="filterSize" onchange="renderEntries()"><option value="">All sizes</option></select>
-      <select id="filterTag" onchange="renderEntries()"><option value="">All tags</option></select>
+      <select id="filterDevice" onchange="entriesFilterChanged()"><option value="">All devices</option></select>
+      <select id="filterSize" onchange="entriesFilterChanged()"><option value="">All sizes</option></select>
+      <select id="filterTag" onchange="entriesFilterChanged()"><option value="">All tags</option></select>
     </div>
     <div id="entries"></div>
     <div class="row">
@@ -1952,6 +1954,18 @@ function populateFilters(){
   const tags=[...new Set(log.flatMap(x=>x.tags||[]))].sort();
   document.getElementById("filterTag").innerHTML = `<option value="">All tags</option>`+tags.map(t=>`<option>${esc(t)}</option>`).join("");
 }
+// Entries pagination — render a small page at a time so the list never
+// balloons into hundreds of DOM nodes (which janks mobile scrolling).
+// Newest-first, so the first page shows what you actually care about.
+const ENTRY_PAGE_SIZE = 30;
+let entriesLimit = ENTRY_PAGE_SIZE;
+
+// Called from the search/filter inputs (oninput/onchange) — resets to page 1
+// because the filtered set is different.
+function entriesFilterChanged(){ entriesLimit = ENTRY_PAGE_SIZE; renderEntries(); }
+// "Show more" button — expand by one page and re-render.
+function loadMoreEntries(){ entriesLimit += ENTRY_PAGE_SIZE; renderEntries(); }
+
 function renderEntries(){
   const q=(document.getElementById("searchBox").value||"").toLowerCase().trim();
   const fd=document.getElementById("filterDevice").value;
@@ -1963,8 +1977,12 @@ function renderEntries(){
   if (fs) list=list.filter(x=>x.size===fs);
   if (ft) list=list.filter(x=>(x.tags||[]).includes(ft));
   const el=document.getElementById("entries");
-  if (!list.length){ el.innerHTML='<p class="muted" style="font-size:13px">No entries match.</p>'; return; }
-  el.innerHTML = list.slice(0,200).map(x=>{
+  const total = list.length;
+  // Clamp the limit so deleting entries never leaves it pointing past the end.
+  if (entriesLimit > total) entriesLimit = Math.max(ENTRY_PAGE_SIZE, total);
+  if (!total){ el.innerHTML='<p class="muted" style="font-size:13px">No entries match.</p>'; return; }
+  const shown = list.slice(0, entriesLimit);
+  el.innerHTML = shown.map(x=>{
     const d=new Date(x.time);
     const extras=[];
     if (x.moodBefore!=null) extras.push("mood "+x.moodBefore+"→"+(x.moodAfter||"?"));
@@ -1980,7 +1998,16 @@ function renderEntries(){
       ${tagline?`<div class="tagline">${tagline}</div>`:""}
     </div><button onclick="deleteEntry('${x.id}')">✕</button></div>`;
   }).join("");
-  if (list.length>200) el.innerHTML+=`<p class="tiny" style="text-align:center">Showing 200 of ${list.length}. Refine search to see more.</p>`;
+  // Footer: count + "Show more" if there are more entries to reveal.
+  const remaining = total - shown.length;
+  if (remaining > 0){
+    el.innerHTML += `<div class="load-more">
+      <button class="secondary" onclick="loadMoreEntries()">Show ${Math.min(ENTRY_PAGE_SIZE, remaining)} more</button>
+      <span class="tiny">Showing ${shown.length} of ${total}</span>
+    </div>`;
+  } else {
+    el.innerHTML += `<p class="tiny" style="text-align:center;margin-top:8px">Showing all ${total} ${total===1?"entry":"entries"}</p>`;
+  }
 }
 
 /* ===================================================================
