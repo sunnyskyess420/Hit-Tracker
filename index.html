@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#101214">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hit Tracker">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="256x256" href="icon-256.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Hit Tracker</title>
 
 <!--
@@ -88,8 +95,28 @@
     width:100%;padding:22px;font-size:20px;font-weight:800;color:#fff;
     background:var(--green);border:none;border-radius:14px;cursor:pointer;
     transition:transform .05s, background .15s;
+    position:relative;overflow:hidden;
   }
   #logButton:active{transform:scale(.99);background:#266b2a}
+  /* Sparkle/pulse animation when logging a hit */
+  @keyframes logPulse{
+    0%   { transform:scale(1);   box-shadow:0 0 0 0 rgba(76,175,80,.7); }
+    30%  { transform:scale(1.08);box-shadow:0 0 0 20px rgba(76,175,80,0); }
+    60%  { transform:scale(.97); box-shadow:0 0 0 0 rgba(76,175,80,0); }
+    100% { transform:scale(1);   box-shadow:0 0 0 0 rgba(76,175,80,0); }
+  }
+  #logButton.pulse{ animation:logPulse .6s ease-out; }
+  /* Sparkle particles */
+  .sparkle{
+    position:absolute;width:8px;height:8px;border-radius:50%;
+    background:radial-gradient(circle, #fff 0%, #ffd700 40%, transparent 70%);
+    pointer-events:none;z-index:10;
+    animation:sparkleFly .8s ease-out forwards;
+  }
+  @keyframes sparkleFly{
+    0%   { transform:translate(0,0) scale(1);   opacity:1; }
+    100% { transform:translate(var(--dx),var(--dy)) scale(0); opacity:0; }
+  }
   .bustup-btn{
     width:100%;padding:14px;font-size:15px;font-weight:700;color:#fff;
     background:#5d4037;border:1px solid #7d5d52;border-radius:12px;cursor:pointer;margin-top:10px;
@@ -939,6 +966,7 @@ function logHit(opts){
   saveLog();
   vib(12);
   playHitSound();
+  pulseLogButton();
   renderAll();
   maybeShowLimitToast();
 }
@@ -951,6 +979,34 @@ function playHitSound(){
     snd.currentTime = 0;  // rewind so rapid taps replay from the start
     snd.play().catch(()=>{});  // ignore autoplay-block errors (first tap always works since it's user-initiated)
   } catch(e){ /* ignore */ }
+}
+
+/* Pulse + sparkle animation on the Log a hit button */
+function pulseLogButton(){
+  const btn = document.getElementById("logButton");
+  if (!btn) return;
+  // trigger pulse animation (restart by removing/re-adding class)
+  btn.classList.remove("pulse");
+  void btn.offsetWidth; // force reflow so animation restarts
+  btn.classList.add("pulse");
+  // spawn sparkles radiating outward from the button center
+  const rect = btn.getBoundingClientRect();
+  const cx = rect.width / 2;
+  const cy = rect.height / 2;
+  const count = 12;
+  for (let i = 0; i < count; i++){
+    const sp = document.createElement("span");
+    sp.className = "sparkle";
+    sp.style.left = cx + "px";
+    sp.style.top  = cy + "px";
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+    const dist = 60 + Math.random() * 60;
+    sp.style.setProperty("--dx", Math.cos(angle) * dist + "px");
+    sp.style.setProperty("--dy", Math.sin(angle) * dist + "px");
+    sp.style.width = sp.style.height = (6 + Math.random() * 8) + "px";
+    btn.appendChild(sp);
+    setTimeout(()=>{ if (sp.parentNode) sp.parentNode.removeChild(sp); }, 900);
+  }
 }
 
 function undoLast(){
