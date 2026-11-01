@@ -41,6 +41,7 @@
     --text:#eaeaea; --muted:#9aa3a8; --muted2:#6b7378;
     --green:#2e7d32; --green-bright:#4caf50; --amber:#ff9800; --red:#8e3a3a; --blue:#42a5f5;
     --radius:16px; --radius-sm:12px;
+    color-scheme:dark; /* native form controls (date picker, dropdowns) render in dark mode */
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
@@ -217,8 +218,15 @@
   .entry .tagline i{background:#2a2f36;color:#bcd;border-radius:4px;padding:1px 5px;font-style:normal;font-size:10px;margin-right:3px}
   .entry button{background:none;border:none;color:#ff7b7b;font-size:16px;cursor:pointer;padding:0 4px}
   .pill{display:inline-block;background:var(--surface2);border:1px solid var(--border2);border-radius:999px;padding:2px 8px;font-size:11px;color:var(--muted);margin-right:4px}
-  .load-more{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)}
-  .load-more button{padding:9px 18px;font-size:13px}
+  /* Day navigation for the Entries card */
+  .day-nav{display:flex;gap:6px;align-items:center;margin:6px 0 4px;flex-wrap:wrap}
+  .day-btn{flex:0 0 auto;padding:7px 10px;font-size:12px}
+  .day-picker{flex:1 1 120px;min-width:0;padding:7px 8px;font-size:13px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:8px}
+  .day-btn:disabled{opacity:.4;cursor:not-allowed}
+  .day-picker:disabled{opacity:.4}
+  .day-header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 2px 10px;border-bottom:1px solid var(--border);margin-bottom:8px}
+  .day-header b{font-size:14px}
+  .day-header .tiny{color:var(--muted)}
 
   /* ---------- Charts ---------- */
   canvas{max-height:230px}
@@ -463,6 +471,20 @@
       <select id="filterSize" onchange="entriesFilterChanged()"><option value="">All sizes</option></select>
       <select id="filterTag" onchange="entriesFilterChanged()"><option value="">All tags</option></select>
     </div>
+
+    <!-- Day navigation: one day at a time -->
+    <div class="day-nav">
+      <button id="entriesPrevBtn" class="secondary day-btn" onclick="entriesPrevDay()">← Prev day</button>
+      <input type="date" id="entriesDayPicker" class="day-picker" onchange="entriesJumpToDay(this.value)">
+      <button id="entriesNextBtn" class="secondary day-btn" onclick="entriesNextDay()">Next day →</button>
+      <button class="secondary day-btn" onclick="entriesToday()">Today</button>
+    </div>
+    <div class="day-header">
+      <b id="entriesDayTitle">—</b>
+      <span class="tiny" id="entriesDaySummary"></span>
+      <span class="tiny" id="entriesNavInfo" style="margin-left:auto;color:var(--muted)"></span>
+    </div>
+
     <div id="entries"></div>
     <div class="row">
       <button class="secondary" onclick="exportCSV()">Export CSV</button>
@@ -1004,6 +1026,7 @@ function logHit(opts){
   vib(12);
   playHitSound();
   pulseLogButton();
+  currentDay = dayKey(new Date()); // Entries view → today, so the new hit is visible
   renderAll();
   maybeShowLimitToast();
 }
@@ -1954,19 +1977,14 @@ function populateFilters(){
   const tags=[...new Set(log.flatMap(x=>x.tags||[]))].sort();
   document.getElementById("filterTag").innerHTML = `<option value="">All tags</option>`+tags.map(t=>`<option>${esc(t)}</option>`).join("");
 }
-// Entries pagination — render a small page at a time so the list never
-// balloons into hundreds of DOM nodes (which janks mobile scrolling).
-// Newest-first, so the first page shows what you actually care about.
-const ENTRY_PAGE_SIZE = 30;
-let entriesLimit = ENTRY_PAGE_SIZE;
+// Entries: show ONE DAY at a time, with prev/next day navigation.
+// Search/filter still applies, but across all days — the nav buttons
+// skip days that have no matching entries, so you only land on days
+// that actually contain results.
+let currentDay = null; // "YYYY-MM-DD"; null = auto-pick the latest day with entries
 
-// Called from the search/filter inputs (oninput/onchange) — resets to page 1
-// because the filtered set is different.
-function entriesFilterChanged(){ entriesLimit = ENTRY_PAGE_SIZE; renderEntries(); }
-// "Show more" button — expand by one page and re-render.
-function loadMoreEntries(){ entriesLimit += ENTRY_PAGE_SIZE; renderEntries(); }
-
-function renderEntries(){
+// Apply the search/filter inputs to the whole log → filtered list (newest-first).
+function filteredEntries(){
   const q=(document.getElementById("searchBox").value||"").toLowerCase().trim();
   const fd=document.getElementById("filterDevice").value;
   const fs=document.getElementById("filterSize").value;
@@ -1976,13 +1994,111 @@ function renderEntries(){
   if (fd) list=list.filter(x=>x.device===fd);
   if (fs) list=list.filter(x=>x.size===fs);
   if (ft) list=list.filter(x=>(x.tags||[]).includes(ft));
+  return list;
+}
+// Distinct day keys that have matching entries, sorted newest-first.
+function filteredDayKeys(){
+  return [...new Set(filteredEntries().map(x=>dayKey(x.time)))].sort().reverse();
+}
+function syncDayPicker(){
+  const pk=document.getElementById("entriesDayPicker");
+  if (pk) pk.value = currentDay || "";
+}
+
+// Search/filter changed: stay on the current day if it still has matches,
+// otherwise jump to the latest day that does.
+function entriesFilterChanged(){
+  const days = filteredDayKeys();
+  if (!days.length){ currentDay = null; }
+  else if (!days.includes(currentDay)){ currentDay = days[0]; }
+  syncDayPicker();
+  renderEntries();
+}
+// Older day (previous in time). days[] is newest-first, so prev = higher index.
+function entriesPrevDay(){
+  const days = filteredDayKeys();
+  if (!days.length) return;
+  const target = days.find(k => k < currentDay); // first day strictly older than current
+  if (target){ currentDay = target; syncDayPicker(); renderEntries(); }
+}
+// Newer day (next in time).
+function entriesNextDay(){
+  const days = filteredDayKeys();
+  if (!days.length) return;
+  const asc = [...days].reverse();
+  const target = asc.find(k => k > currentDay); // first day strictly newer than current
+  if (target){ currentDay = target; syncDayPicker(); renderEntries(); }
+}
+// Jump to an arbitrary date via the picker (may be an empty day).
+function entriesJumpToDay(dateStr){
+  if (!dateStr) return;
+  currentDay = dateStr;
+  renderEntries();
+}
+function entriesToday(){
+  currentDay = dayKey(new Date());
+  syncDayPicker();
+  renderEntries();
+}
+
+function renderEntries(){
   const el=document.getElementById("entries");
-  const total = list.length;
-  // Clamp the limit so deleting entries never leaves it pointing past the end.
-  if (entriesLimit > total) entriesLimit = Math.max(ENTRY_PAGE_SIZE, total);
-  if (!total){ el.innerHTML='<p class="muted" style="font-size:13px">No entries match.</p>'; return; }
-  const shown = list.slice(0, entriesLimit);
-  el.innerHTML = shown.map(x=>{
+  const filtered = filteredEntries();
+  const days = filteredDayKeys();
+  // Only auto-default when no day is set yet. Explicit jumps (including to
+  // empty days via the date picker) are always respected.
+  if (!currentDay && days.length){
+    currentDay = days[0];
+  }
+  syncDayPicker(); // always reflect currentDay in the picker input
+
+  // Header + nav state
+  const titleEl = document.getElementById("entriesDayTitle");
+  const sumEl   = document.getElementById("entriesDaySummary");
+  const navInfo = document.getElementById("entriesNavInfo");
+  const prevBtn = document.getElementById("entriesPrevBtn");
+  const nextBtn = document.getElementById("entriesNextBtn");
+  const picker  = document.getElementById("entriesDayPicker");
+
+  const setHeader = (t, s, n) => { if(titleEl) titleEl.textContent = t; if(sumEl) sumEl.textContent = s; if(navInfo) navInfo.textContent = n; };
+  const setNav = (prevOn, nextOn) => { if(prevBtn) prevBtn.disabled = !prevOn; if(nextBtn) nextBtn.disabled = !nextOn; if(picker) picker.disabled = !days.length; };
+
+  if (!log.length){
+    el.innerHTML='<p class="muted" style="font-size:13px">No entries yet — log your first hit!</p>';
+    setHeader("—", "", ""); setNav(false, false);
+    return;
+  }
+  if (!filtered.length){
+    el.innerHTML='<p class="muted" style="font-size:13px">No entries match your filters.</p>';
+    setHeader("—", "", ""); setNav(false, false);
+    return;
+  }
+
+  // Entries belonging to the current day
+  const dayEntries = filtered.filter(x => dayKey(x.time) === currentDay);
+  const dayG = dayEntries.reduce((s,x)=>s+entryAmount(x),0);
+  const dayCost = dayEntries.reduce((s,x)=>s+hitCost(x),0);
+  const idx = days.indexOf(currentDay); // -1 when currentDay is an empty day
+
+  const dDate = new Date(currentDay + "T12:00:00");
+  const isToday = currentDay === dayKey(new Date());
+  setHeader(
+    dDate.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric", year:"numeric"}) + (isToday ? " · today" : ""),
+    dayEntries.length
+      ? `${dayEntries.length} ${dayEntries.length===1?"hit":"hits"} • ${gramsFmt(dayG)}${dayCost?` • ${money(dayCost)}`:""}`
+      : "no entries on this day",
+    idx >= 0 ? `Day ${idx+1} of ${days.length}` : `${days.length} ${days.length===1?"day has":"days have"} hits`
+  );
+  // Prev enabled if an older day-with-entries exists; next if a newer one does.
+  // Works whether currentDay is an entry-day or an empty day from the picker.
+  setNav(days.some(k => k < currentDay), days.some(k => k > currentDay));
+
+  if (!dayEntries.length){
+    el.innerHTML='<p class="muted" style="font-size:13px">No entries on this day. Use ← Prev / Next → to find days with hits.</p>';
+    return;
+  }
+  // Render this day's entries (time only — the date is in the header).
+  el.innerHTML = dayEntries.map(x=>{
     const d=new Date(x.time);
     const extras=[];
     if (x.moodBefore!=null) extras.push("mood "+x.moodBefore+"→"+(x.moodAfter||"?"));
@@ -1992,22 +2108,12 @@ function renderEntries(){
     if (x.social) extras.push(x.social);
     const tagline=(x.tags||[]).map(t=>`<i>${esc(t)}</i>`).join("");
     return `<div class="entry"><div class="meta">
-      <b>${d.toLocaleString()}</b>
+      <b>${d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})}</b>
       <small>${esc(x.size)} • ${esc(x.device)} • ${gramsFmt(entryAmount(x))}${hitCost(x)?` • ${money(hitCost(x))}`:""}${x.note?` • ${esc(x.note)}`:""}</small>
       ${extras.length?`<small class="muted">${esc(extras.join(" • "))}</small>`:""}
       ${tagline?`<div class="tagline">${tagline}</div>`:""}
     </div><button onclick="deleteEntry('${x.id}')">✕</button></div>`;
   }).join("");
-  // Footer: count + "Show more" if there are more entries to reveal.
-  const remaining = total - shown.length;
-  if (remaining > 0){
-    el.innerHTML += `<div class="load-more">
-      <button class="secondary" onclick="loadMoreEntries()">Show ${Math.min(ENTRY_PAGE_SIZE, remaining)} more</button>
-      <span class="tiny">Showing ${shown.length} of ${total}</span>
-    </div>`;
-  } else {
-    el.innerHTML += `<p class="tiny" style="text-align:center;margin-top:8px">Showing all ${total} ${total===1?"entry":"entries"}</p>`;
-  }
 }
 
 /* ===================================================================
