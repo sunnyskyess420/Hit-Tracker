@@ -1,0 +1,22 @@
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Node (if you ever add tooling)
+node_modules/
+package-lock.json
+
+# Personal data — NEVER commit your actual usage data
+hit-tracker-backup.json
+*.backup.json
