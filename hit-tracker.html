@@ -13,6 +13,11 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Sunnys Hit Tracker</title>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+</script>
 
 <!--
   Sunnys Hit Tracker — single-file private marijuana usage tracker.
@@ -433,6 +438,10 @@
       <div class="stat"><b id="stashSpent">—</b><span>Total spent</span></div>
     </div>
 
+    <div id="stashLowWarning" style="display:none;margin-top:8px;padding:8px;background:#ffebee;border-left:4px solid #c62828;border-radius:6px;font-size:13px">
+      ⚠️ <b>Low stash:</b> You're under <span id="stashLowThresh"></span>g on hand — time to reup.
+    </div>
+
     <!-- Clear breakdown of the math -->
     <div id="weedMath" class="weed-math"></div>
 
@@ -498,6 +507,12 @@
     </div>
 
     <div id="entries"></div>
+
+    <!-- Backup reminder -->
+    <div id="backupReminder" style="display:none;margin-bottom:8px;padding:8px;background:#fff3e0;border-left:4px solid #ff9800;border-radius:6px;font-size:13px">
+      ⏰ <b>Backup reminder:</b> You haven't backed up your data in over 14 days. Tap <span style="cursor:pointer;color:#4caf50;font-weight:bold" onclick="exportJSON()">Backup JSON</span> to save a copy.
+    </div>
+
     <div class="row">
       <button class="secondary" onclick="exportCSV()">Export CSV</button>
       <button class="secondary" onclick="exportJSON()">Backup JSON</button>
@@ -616,6 +631,11 @@
     <label>Default grams per hit (used when you don't enter an amount)</label>
     <input type="number" id="setDefaultGrams" min="0" step="0.01" style="max-width:120px" value="0.02">
     <p class="tiny">Since you don't know your hit count yet, the app estimates each hit at this weight. Adjust it as you learn your real per-hit amount. You can override per hit in “Add details”.</p>
+
+    <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Stash alert</h2>
+    <label>Low-stash warning (grams on hand)</label>
+    <input type="number" id="setLowStash" min="0" step="0.1" style="max-width:120px">
+    <p class="tiny">Shows a ⚠️ warning on the stash card when your stash drops below this amount. Set to 0 to disable.</p>
 
     <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Cost</h2>
     <label>Currency</label>
@@ -798,7 +818,9 @@ function defaultSettings(){
     pinHash: null,            // SHA-256 hex of PIN+salt, or null
     blurUntilUnlocked: true,
     autoLockOnLoad: true,
-    sync: {enabled:false, url:"", auth:"", lastSync:null}
+    sync: {enabled:false, url:"", auth:"", lastSync:null},
+    lowStashThreshold: 7,   // warn when stash drops below this many grams (quarter oz default)
+    lastBackup: null        // ISO timestamp of last backup (for backup reminder)
   };
 }
 
@@ -840,6 +862,8 @@ function loadAll(){
   settings.quickButtons = Array.isArray(settings.quickButtons) && settings.quickButtons.length
     ? settings.quickButtons : defaultSettings().quickButtons;
   settings.tags = Array.isArray(settings.tags) ? settings.tags : defaultSettings().tags;
+  settings.lowStashThreshold = +settings.lowStashThreshold || 7;
+  settings.lastBackup = settings.lastBackup || null;
 
   // --- Migration: version < 5 had 0.1g/hit default (way too high for pipe hits) ---
   // Version 6: force-refresh any quick button with a missing/invalid device
@@ -1297,6 +1321,19 @@ function renderStash(){
   setText("stashPricePerG", ppg>0 ? money(ppg) : "—");
   setText("stashHitsLeft", b.totalOnHand > 0 ? hits : "—");
   setText("stashSpent", b.spent>0 ? money(b.spent) : "—");
+
+  // Low-stash warning
+  const lowEl = document.getElementById("stashLowWarning");
+  const threshEl = document.getElementById("stashLowThresh");
+  if (lowEl && threshEl){
+    const thr = +settings.lowStashThreshold || 0;
+    threshEl.textContent = thr;
+    if (thr > 0 && b.totalOnHand > 0 && b.totalOnHand < thr){
+      lowEl.style.display = "";
+    } else {
+      lowEl.style.display = "none";
+    }
+  }
 
   // Weed math breakdown — two-stage: nugs → ground → smoked
   const mathEl = document.getElementById("weedMath");
@@ -2135,6 +2172,7 @@ function openSettings(){
   document.getElementById("setLimit").value = settings.dailyLimit||0;
   document.getElementById("setWarn").value = settings.warnAt80?1:0;
   document.getElementById("setDefaultGrams").value = settings.defaultGramsPerHit||0.02;
+  document.getElementById("setLowStash").value = settings.lowStashThreshold||7;
   document.getElementById("setCurrency").value = settings.currency;
   document.getElementById("setCurSym").textContent = curSym();
   document.getElementById("setPricePerGram").value = settings.pricePerGram||0;
@@ -2164,6 +2202,7 @@ function saveSettings(){
   settings.quickLog = document.getElementById("setQuickLog").value==="1";
   settings.blurUntilUnlocked = document.getElementById("setBlur").value==="1";
   settings.autoLockOnLoad = document.getElementById("setAutolock").value==="1";
+  settings.lowStashThreshold = +document.getElementById("setLowStash").value||7;
   saveSettingsObj();
   closeModal("settingsModal");
   renderAll();
@@ -2688,6 +2727,8 @@ function generateReport(){
 }
 
 function exportCSV(){
+  settings.lastBackup = new Date().toISOString();
+  saveSettingsObj();
   const cols=["Timestamp","Size","Device","Amount_g","Note","Cost","MoodBefore","MoodAfter","Stress","Energy","Sleep","Social","Tags"];
   const rows=[cols.join(",")];
   [...log].sort((a,b)=>new Date(a.time)-new Date(b.time)).forEach(x=>{
@@ -2701,6 +2742,8 @@ function exportCSV(){
   download("hit-tracker.csv", rows.join("\n"), "text/csv");
 }
 function exportJSON(){
+  settings.lastBackup = new Date().toISOString();
+  saveSettingsObj();
   // Full backup: log + checkins + stash + bustups + settings (PIN hash included so restore keeps lock; remove if you prefer).
   const payload={
     app:"hit-tracker", version:5, exportedAt:new Date().toISOString(),
@@ -2812,6 +2855,15 @@ function renderAll(){
   renderCostStats();
   renderStash();
   renderBustupStats();
+
+  // Backup reminder: show if never backed up or last backup > 14 days ago
+  const br = document.getElementById("backupReminder");
+  if (br){
+    const last = settings.lastBackup;
+    const days = last ? (Date.now() - new Date(last).getTime()) / (1000*60*60*24) : Infinity;
+    br.style.display = (days > 14) ? "" : "none";
+  }
+
   calRender();
   renderCharts();
   renderWeeklyReport();
