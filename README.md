@@ -1,4 +1,4 @@
-# Hit Tracker
+# Sunnys Hit Tracker
 
 A private, single-file marijuana usage tracker. All data stays in your browser's localStorage — no account, no server, nothing leaves your device unless you explicitly enable cloud sync.
 

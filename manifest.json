@@ -1,6 +1,6 @@
 {
-  "name": "Hit Tracker",
-  "short_name": "Hit Tracker",
+  "name": "Sunnys Hit Tracker",
+  "short_name": "Sunnys Hit Tracker",
   "description": "Private, single-file marijuana usage tracker. Gram-based, offline, no account.",
   "start_url": "./",
   "scope": "./",
