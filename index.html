@@ -541,6 +541,16 @@
       ⚠️ <b>Low stash:</b> You're under <span id="stashLowThresh"></span>g on hand — time to reup.
     </div>
 
+    <div id="lastBatch" class="tiny" style="display:none;margin-top:8px"></div>
+
+    <div id="weighNudge" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--amber);border-radius:6px;font-size:13px;color:var(--text)">
+      <div id="weighNudgeText"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="secondary" onclick="openCount()">Count it</button>
+        <button class="secondary" onclick="dismissWeighNudge()">Not now</button>
+      </div>
+    </div>
+
     <div id="groundNudge" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--green-bright);border-radius:6px;font-size:13px;color:var(--text)">
       <div id="groundNudgeText"></div>
       <button class="secondary" id="groundNudgeBtn" style="margin-top:8px;width:100%;background:var(--green);color:#fff;font-weight:700" onclick="bustUp('')">Bust up</button>
@@ -1072,6 +1082,7 @@ function defaultSettings(){
     checkinReminderHour: 0, // 0 = off; nudge after this hour if no check-in today
     settingsTab: "logging", // last Settings tab opened
     lastCheckinPrompt: null,// day key already nudged for
+    lastWeighPrompt: null,  // day key we last asked for a weigh-in
     lastBackup: null,       // ISO timestamp of last backup (for backup reminder)
     lastAutoBackup: null,   // ISO timestamp of last automatic weekly file backup
     // --- v7 additions ---
@@ -1286,6 +1297,7 @@ function loadAll(){
   settings.tbreakGoalDays = Math.max(1, Math.min(365, +settings.tbreakGoalDays || 7));
   settings.checkinReminderHour = Math.min(23, Math.max(0, +settings.checkinReminderHour || 0));
   settings.lastCheckinPrompt = settings.lastCheckinPrompt || null;
+  settings.lastWeighPrompt = settings.lastWeighPrompt || null;
   settings.settingsTab = ["logging","stash","habits","privacy"].indexOf(settings.settingsTab) >= 0 ? settings.settingsTab : "logging";
   settings.lastBackup = settings.lastBackup || null;
   settings.lastAutoBackup = settings.lastAutoBackup || null;
@@ -2025,6 +2037,26 @@ function renderStash(){
     }
   }
 
+  // Most recent batch, so "how much of my 2g is left" is answerable at a glance
+  const lbEl = document.getElementById("lastBatch");
+  if (lbEl){
+    if (bustups.length){
+      const last = [...bustups].sort((a,b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))[0];
+      const amt = +last.amount || 0;
+      const ts = +new Date(last.date + "T12:00:00");
+      const fixAfter = settings.inventoryFix && +new Date(settings.inventoryFix.at) >= ts;
+      const sinceG = log.filter(x => +new Date(x.time) >= ts).reduce((s,x)=>s+entryAmount(x),0);
+      const leftG = fixAfter ? b.groundReady : Math.max(0, amt - sinceG);
+      lbEl.textContent = gramsFmt(amt) + " batch from "
+        + new Date(last.date + "T12:00:00").toLocaleDateString(undefined, {month:"short", day:"numeric"})
+        + " — " + gramsFmt(leftG) + " left";
+      lbEl.style.display = "";
+    } else {
+      lbEl.style.display = "none";
+    }
+  }
+  renderWeighNudge();
+
   // Ground-low nudge: whole nugs left but nothing (or almost nothing) ground
   const gEl = document.getElementById("groundNudge");
   if (gEl){
@@ -2184,11 +2216,84 @@ function saveCount(){
   if (isNaN(total) || total < 0){ toast("Enter the total grams on hand"); return; }
   if (isNaN(ground) || ground < 0){ toast("Enter the ground grams (0 is fine)"); return; }
   if (ground > total){ toast("Ground can't be more than the total"); return; }
+  const previous = settings.inventoryFix;
   settings.inventoryFix = { at: new Date().toISOString(), total: r4(total), ground: r4(ground) };
+  settings.lastWeighPrompt = null;
   saveSettingsObj();
   closeModal("countModal");
   renderAll();
-  toast("Count saved — " + gramsFmt(ground) + " ground");
+
+  // Calibrate: compare what the batch should have taken with what it really took.
+  const est = calibrationEstimate();
+  if (est){
+    const msg = "Your hits look like " + gramsFmt(est.implied) + " each, not " + gramsFmt(est.current)
+      + " (" + est.hits + " hits since your last bust-up).\n\nUpdate the estimate?";
+    if (confirm(msg)){
+      settings.defaultGramsPerHit = est.implied;
+      saveSettingsObj();
+      renderAll();
+      toast("Grams per hit set to " + gramsFmt(est.implied));
+      return;
+    }
+  }
+  toast("Count saved — " + gramsFmt(ground) + " ground", { label:"Undo", fn:()=>{
+    settings.inventoryFix = previous;
+    saveSettingsObj();
+    renderAll();
+    toast("Count undone");
+  }});
+}
+
+// How many grams a default hit really is, from the latest batch + count.
+function calibrationEstimate(){
+  if (!settings.inventoryFix || !bustups.length) return null;
+  const last = [...bustups].sort((a,b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))[0];
+  const startTs = +new Date(last.date + "T12:00:00");
+  const countTs = +new Date(settings.inventoryFix.at);
+  if (!(countTs >= startTs)) return null;             // counted before this batch
+  const batch = +last.amount || 0;
+  if (batch <= 0) return null;
+  const after = log.filter(x => {
+    const t = +new Date(x.time);
+    return t >= startTs && t <= countTs;
+  });
+  let explicit = 0, defaultHits = 0;
+  after.forEach(x => {
+    if (x.amount != null && !isNaN(+x.amount) && +x.amount > 0) explicit += +x.amount;
+    else defaultHits++;
+  });
+  if (defaultHits < 5) return null;                    // not enough signal
+  const consumed = batch - settings.inventoryFix.ground;
+  if (consumed <= 0 || consumed > batch) return null;
+  const fromDefaults = consumed - explicit;
+  if (fromDefaults <= 0) return null;
+  const implied = fromDefaults / defaultHits;
+  if (!(implied > 0.001 && implied < 2)) return null;
+  const current = +settings.defaultGramsPerHit || 0.02;
+  if (implied > current * 0.8 && implied < current * 1.25) return null;   // close enough
+  return { implied: r4(implied), hits: defaultHits, current };
+}
+
+// Ask for a weigh-in when the last count is old, or when there has never been one.
+function renderWeighNudge(){
+  const el = document.getElementById("weighNudge");
+  if (!el) return;
+  const today = dayKey(new Date());
+  if (settings.lastWeighPrompt === today || !stash.length){ el.style.display = "none"; return; }
+  const fix = settings.inventoryFix;
+  const age = fix ? (Date.now() - new Date(fix.at).getTime()) / 86400000 : Infinity;
+  const staleDays = 14;
+  if (age <= staleDays){ el.style.display = "none"; return; }
+  const txt = fix
+    ? "Last weighed " + Math.floor(age) + " days ago. A 10-second count keeps the numbers honest."
+    : "You've been logging without a weigh-in. Weigh the jar once and the card stops guessing.";
+  document.getElementById("weighNudgeText").textContent = txt;
+  el.style.display = "";
+}
+function dismissWeighNudge(){
+  settings.lastWeighPrompt = dayKey(new Date());
+  saveSettingsObj();
+  renderWeighNudge();
 }
 function clearCount(){
   settings.inventoryFix = null;
@@ -3897,6 +4002,7 @@ function sanitizeImportedSettings(s){
   s.tbreakGoalDays = Math.max(1, Math.min(365, +s.tbreakGoalDays || 7));
   s.checkinReminderHour = Math.min(23, Math.max(0, +s.checkinReminderHour || 0));
   s.lastCheckinPrompt = null;
+  s.lastWeighPrompt = null;
   s.warnAt80 = !!s.warnAt80;
   s.quickLog = !!s.quickLog;
   s.goalBankEnabled = !!s.goalBankEnabled;
