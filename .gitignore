@@ -17,6 +17,7 @@ desktop.ini
 node_modules/
 package-lock.json
 
-# Personal data — NEVER commit your actual usage data
+# Personal data - NEVER commit your actual usage data
 hit-tracker-backup.json
 *.backup.json
+backup/
