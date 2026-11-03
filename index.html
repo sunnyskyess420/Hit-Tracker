@@ -1173,7 +1173,8 @@ function applyState(state){
   settings.defaultGramsPerHit = +settings.defaultGramsPerHit || 0.02;
   settings.pricePerGram = +settings.pricePerGram || 0;
   settings.costPerSize = Object.assign({Small:0,Medium:0,Large:0}, settings.costPerSize || {});
-  settings.quickButtons = Array.isArray(settings.quickButtons) && settings.quickButtons.length
+  // An empty list is a deliberate choice: only fall back when there is no list at all.
+  settings.quickButtons = Array.isArray(settings.quickButtons)
     ? settings.quickButtons : defaultSettings().quickButtons;
   settings.tags = Array.isArray(settings.tags) ? settings.tags : defaultSettings().tags;
   settings.lowStashThreshold = +settings.lowStashThreshold || 7;
@@ -1279,7 +1280,8 @@ function loadAll(){
   settings.pricePerGram = +settings.pricePerGram || 0;
   settings.costPerSize = Object.assign({Small:0,Medium:0,Large:0}, settings.costPerSize || {});
   settings.sync = Object.assign({enabled:false,url:"",auth:"",lastSync:null}, settings.sync || {});
-  settings.quickButtons = Array.isArray(settings.quickButtons) && settings.quickButtons.length
+  // An empty list is a deliberate choice: only fall back when there is no list at all.
+  settings.quickButtons = Array.isArray(settings.quickButtons)
     ? settings.quickButtons : defaultSettings().quickButtons;
   settings.tags = Array.isArray(settings.tags) ? settings.tags : defaultSettings().tags;
   settings.lowStashThreshold = +settings.lowStashThreshold || 7;
@@ -3205,7 +3207,7 @@ function renderQBList(){
       <select onchange="settings.quickButtons[${i}].size=this.value;saveSettingsObj()">${SIZES.map(s=>`<option ${s===b.size?"selected":""}>${s}</option>`).join("")}</select>
       <select onchange="settings.quickButtons[${i}].device=this.value;saveSettingsObj()">${DEFAULT_DEVICES.map(d=>`<option ${d===b.device?"selected":""}>${d}</option>`).join("")}</select>
       <input type="number" step="0.01" min="0" value="${b.amount!=null?b.amount:''}" oninput="settings.quickButtons[${i}].amount=this.value===''?null:+this.value;saveSettingsObj()" placeholder="g" style="max-width:60px" title="grams">
-      <button class="secondary danger" onclick="settings.quickButtons.splice(${i},1);saveSettingsObj();renderQBList();renderQuickButtons()">•</button>
+      <button class="secondary danger" aria-label="Delete quick button" onclick="settings.quickButtons.splice(${i},1);saveSettingsObj();renderQBList();renderQuickButtons()">✕</button>
     </div>`).join("");
 }
 function addQuickButton(){ settings.quickButtons.push({label:"New",size:"Medium",device:"Pipe",amount:0.1}); saveSettingsObj(); renderQBList(); renderQuickButtons(); }
