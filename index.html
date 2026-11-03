@@ -311,9 +311,18 @@
   a{color:var(--blue)}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#000;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:120;opacity:0;transition:opacity .25s,bottom .25s;pointer-events:none;max-width:90%;text-align:center}
   .toast.show{opacity:1;bottom:34px}
+  /* Back-to-top / quick-log button — appears once you scroll past the first viewport */
+  .to-top{position:fixed;right:18px;bottom:18px;z-index:110;display:flex;align-items:center;gap:6px;padding:10px 14px;border:none;border-radius:14px;background:var(--green-bright);color:#0d1116;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.45);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+  .to-top.show{opacity:1;transform:translateY(0);pointer-events:auto}
+  .to-top:hover{filter:brightness(1.08)}
+  .to-top:active{transform:translateY(0) scale(.96)}
+  @media(max-width:480px){.to-top{right:12px;bottom:14px;padding:9px 12px;font-size:12px}}
 </style>
 </head>
 <body>
+
+<!-- ===== BACK-TO-TOP / QUICK-LOG BUTTON (appears after first viewport) ===== -->
+<button id="toTopBtn" class="to-top" aria-label="Back to top to log a hit" title="Back to top — log a hit">↑ Log a hit</button>
 
 <!-- ===== LOCK OVERLAY (shown when PIN enabled & locked) ===== -->
 <div id="lockOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Locked">
@@ -3491,6 +3500,18 @@ function init(){
   initDurability();
 }
 init();
+
+/* ===== Back-to-top / quick-log button (appears once you scroll past the first viewport) ===== */
+(function(){
+  var btn = document.getElementById("toTopBtn");
+  if(!btn) return;
+  var vp = window.innerHeight || document.documentElement.clientHeight;
+  function onScroll(){ if(window.scrollY > vp) btn.classList.add("show"); else btn.classList.remove("show"); }
+  window.addEventListener("scroll", onScroll, {passive:true});
+  window.addEventListener("resize", function(){ vp = window.innerHeight || document.documentElement.clientHeight; onScroll(); });
+  btn.addEventListener("click", function(){ window.scrollTo({top:0, behavior:"smooth"}); vib(8); });
+  onScroll();
+})();
 </script>
 </body>
 </html>
