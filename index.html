@@ -176,8 +176,18 @@
     border-radius:999px;padding:7px 12px;cursor:pointer;font-size:13px;user-select:none;
   }
   .chip.active{background:var(--green);border-color:var(--green)}
-  .chip.tag{background:#2a2f36;border-color:#3a4148;font-size:12px}
+  .chip.tag{background:#2a2f36;border-color:#3a4148;font-size:12px;display:inline-flex;align-items:center;gap:5px}
   .chip.tag.active{background:var(--blue);border-color:var(--blue)}
+  .chip.tag .tag-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:0 0 8px}
+  .tag-mgr-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border:1px solid var(--border2);border-radius:999px;background:var(--surface2);margin:0 4px 4px 0}
+  .tag-mgr-pill input[type="color"]{width:18px;height:18px;border:none;background:none;cursor:pointer;padding:0}
+  .tag-mgr-pill input[type="color"]::-webkit-color-swatch{border:1px solid var(--border2);border-radius:50%}
+  .tag-mgr-pill input[type="color"]::-webkit-color-swatch-wrapper{padding:0}
+  .dev-gph-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .dev-gph-row label{flex:1;font-size:13px;color:var(--text)}
+  .dev-gph-row input{width:84px}
+  .range-presets{display:flex;gap:6px;flex-wrap:wrap}
+  .range-presets button{flex:1 1 auto;min-width:44px;padding:6px 8px;font-size:12px}
 
   /* ---------- Limit ring ---------- */
   .limit-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
@@ -263,6 +273,12 @@
   @media(min-width:600px){.sheet{border-radius:18px}}
   .sheet h2{position:sticky;top:0;background:var(--surface);margin:-4px -4px 8px;padding:4px;z-index:1}
   .sheet-close{float:right;background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1}
+  /* Sticky settings header: Save button stays pinned at the top while scrolling */
+  .sheet-head{position:sticky;top:0;background:var(--surface);margin:-4px -4px 8px;padding:8px 4px 10px;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border)}
+  .sheet-head h2{position:static;margin:0;padding:0;background:transparent}
+  .sheet-head-actions{display:flex;align-items:center;gap:8px}
+  .sheet-head .sheet-close{float:none;padding:0 4px}
+  button.secondary.save-top{flex:0 0 auto;min-width:0;background:var(--green);color:#fff;font-weight:700;border-color:var(--green);padding:9px 18px}
 
   /* ---------- Lock & panic ---------- */
   #lockOverlay{background:rgba(16,18,20,.97);backdrop-filter:blur(14px);align-items:center;z-index:90}
@@ -421,6 +437,7 @@
           <div class="stat"><b id="todayGrams">—</b><span>Today (g)</span></div>
           <div class="stat"><b id="todayCost">—</b><span>Today's cost</span></div>
           <div class="stat"><b id="currentGap">—</b><span>Since last</span></div>
+          <div class="stat"><b id="goalBankStat">—</b><span>Goal bank</span></div>
         </div>
       </div>
     </div>
@@ -438,7 +455,7 @@
       <div class="stat"><b id="stashSpent">—</b><span>Total spent</span></div>
     </div>
 
-    <div id="stashLowWarning" style="display:none;margin-top:8px;padding:8px;background:#ffebee;border-left:4px solid #c62828;border-radius:6px;font-size:13px">
+    <div id="stashLowWarning" style="display:none;margin-top:8px;padding:8px;background:var(--surface2);border-left:4px solid var(--red);border-radius:6px;font-size:13px;color:var(--text)">
       ⚠️ <b>Low stash:</b> You're under <span id="stashLowThresh"></span>g on hand — time to reup.
     </div>
 
@@ -492,6 +509,17 @@
       <select id="filterDevice" onchange="entriesFilterChanged()"><option value="">All devices</option></select>
       <select id="filterSize" onchange="entriesFilterChanged()"><option value="">All sizes</option></select>
       <select id="filterTag" onchange="entriesFilterChanged()"><option value="">All tags</option></select>
+    </div>
+    <div class="search-row" id="entriesRangeRow">
+      <input type="date" id="filterFrom" onchange="entriesRangeChanged()" aria-label="From date" title="From">
+      <input type="date" id="filterTo" onchange="entriesRangeChanged()" aria-label="To date" title="To">
+      <div class="range-presets">
+        <button class="secondary" onclick="setEntriesRange(7)">7d</button>
+        <button class="secondary" onclick="setEntriesRange(30)">30d</button>
+        <button class="secondary" onclick="setEntriesRange('month')">Month</button>
+        <button class="secondary" onclick="setEntriesRange('all')">All</button>
+        <button class="secondary" onclick="clearEntriesRange()">Clear</button>
+      </div>
     </div>
 
     <!-- Day navigation: one day at a time -->
@@ -589,6 +617,8 @@
       <div class="stat"><b id="bustupsAvg">—</b><span>Avg days between</span></div>
       <div class="stat"><b id="yesterday">0</b><span>Yesterday</span></div>
       <div class="stat"><b id="longestGap">—</b><span>Longest gap</span></div>
+      <div class="stat"><b id="streakCurrent">0</b><span>Current streak</span></div>
+      <div class="stat"><b id="streakLongest">0</b><span>Longest streak</span></div>
     </div>
   </div>
 
@@ -619,8 +649,13 @@
 <!-- ===== SETTINGS MODAL ===== -->
 <div id="settingsModal" class="overlay hidden" onclick="if(event.target===this)closeModal('settingsModal')">
   <div class="sheet">
-    <button class="sheet-close" onclick="closeModal('settingsModal')">×</button>
-    <h2>Settings</h2>
+    <div class="sheet-head">
+      <h2>Settings</h2>
+      <div class="sheet-head-actions">
+        <button class="secondary save-top" onclick="saveSettings()">Save settings</button>
+        <button class="sheet-close" onclick="closeModal('settingsModal')">×</button>
+      </div>
+    </div>
 
     <h2 style="font-size:13px;color:var(--muted);margin-top:6px">Daily limit</h2>
     <label>Limit unit</label>
@@ -629,9 +664,16 @@
     <input type="number" id="setLimit" min="0" max="50" step="0.1" style="max-width:120px">
     <label>Warn at 80% (informational, never blocks)</label>
     <select id="setWarn"><option value="1">On</option><option value="0">Off</option></select>
+    <label>Goal bank — carry unused daily allowance forward</label>
+    <select id="setGoalBank"><option value="0">Off</option><option value="1">On</option></select>
+    <p class="tiny">When on, allowance you don’t use each day accumulates as a “bank” (capped at 2× your daily limit), raising today’s effective limit. Flexibility without abandoning the goal.</p>
     <label>Default grams per hit (used when you don't enter an amount)</label>
     <input type="number" id="setDefaultGrams" min="0" step="0.01" style="max-width:120px" value="0.02">
     <p class="tiny">Since you don't know your hit count yet, the app estimates each hit at this weight. Adjust it as you learn your real per-hit amount. You can override per hit in “Add details”.</p>
+
+    <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Per-device grams per hit</h2>
+    <p class="tiny">Override the global default for specific devices. Leave a field blank to use the global default above.</p>
+    <div id="deviceGphList"></div>
 
     <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Stash alert</h2>
     <label>Low-stash warning (grams on hand)</label>
@@ -681,9 +723,6 @@
     <select id="setBlur"><option value="1">On</option><option value="0">Off (opaque cover)</option></select>
     <label>Auto-lock when app opens</label>
     <select id="setAutolock"><option value="1">On</option><option value="0">Off</option></select>
-
-    <div class="divider"></div>
-    <button class="secondary" onclick="saveSettings()">Save settings</button>
   </div>
 </div>
 
@@ -795,10 +834,11 @@ const SIZES      = ["Small","Medium","Large"];
 // Devices reordered to match your actual usage: Pipe (main), Vape pen, Dab rig (concentrates), Joint (rare)
 const DEFAULT_DEVICES = ["Pipe","Vape pen","Dab rig","Joint","Bong","Edible","Other"];
 const CURRENCY_SYM = {CAD:"$",USD:"$",EUR:"€",GBP:"£",AUD:"$",JPY:"¥"};
+const TAG_PALETTE = ["#7e57c2","#26a69a","#ef5350","#5c6bc0","#ffa726","#ec407a","#26c6da","#9ccc65","#ab47bc","#ffca28"];
 
 function defaultSettings(){
   return {
-    version: 6,
+    version: 7,
     limitUnit: "grams",       // "grams" (weight) or "hits" (count)
     dailyLimit: 1,            // in limitUnit — 1 gram/day default; 0 = off
     warnAt80: true,
@@ -821,7 +861,11 @@ function defaultSettings(){
     autoLockOnLoad: true,
     sync: {enabled:false, url:"", auth:"", lastSync:null},
     lowStashThreshold: 7,   // warn when stash drops below this many grams (quarter oz default)
-    lastBackup: null        // ISO timestamp of last backup (for backup reminder)
+    lastBackup: null,       // ISO timestamp of last backup (for backup reminder)
+    // --- v7 additions ---
+    deviceGramsPerHit: {},  // #9: device -> grams; overrides defaultGramsPerHit when set
+    tagColors: {},          // #13: tag name -> #rrggbb
+    goalBankEnabled: false  // #15: carry unused daily-goal allowance forward
   };
 }
 
@@ -865,6 +909,11 @@ function loadAll(){
   settings.tags = Array.isArray(settings.tags) ? settings.tags : defaultSettings().tags;
   settings.lowStashThreshold = +settings.lowStashThreshold || 7;
   settings.lastBackup = settings.lastBackup || null;
+  // --- v7: ensure new fields exist, assign colors to any legacy tags ---
+  settings.deviceGramsPerHit = (settings.deviceGramsPerHit && typeof settings.deviceGramsPerHit === "object") ? settings.deviceGramsPerHit : {};
+  settings.tagColors = (settings.tagColors && typeof settings.tagColors === "object") ? settings.tagColors : {};
+  settings.goalBankEnabled = !!settings.goalBankEnabled;
+  (settings.tags || []).forEach((t,i) => { if (!settings.tagColors[t]) settings.tagColors[t] = TAG_PALETTE[i % TAG_PALETTE.length]; });
 
   // --- Migration: version < 5 had 0.1g/hit default (way too high for pipe hits) ---
   // Version 6: force-refresh any quick button with a missing/invalid device
@@ -987,6 +1036,9 @@ function startOfWeek(d){ const x=new Date(d); const day=x.getDay(); x.setDate(x.
 // Old entries (no amount) are estimated so totals stay useful while you learn your real per-hit weight.
 function entryAmount(e){
   if (e.amount != null && !isNaN(e.amount) && e.amount > 0) return +e.amount;
+  // #9: per-device override wins over the global default when no explicit amount
+  const dg = settings.deviceGramsPerHit && settings.deviceGramsPerHit[e.device];
+  if (dg != null && !isNaN(+dg) && +dg > 0) return +dg;
   return +settings.defaultGramsPerHit || 0;
 }
 function dayGrams(dateKey){ return log.filter(x=>dayKey(x.time)===dateKey).reduce((s,x)=>s+entryAmount(x),0); }
@@ -1133,7 +1185,7 @@ function renderDeviceSelect(){
 /* --- Tags in details panel --- */
 function renderTagChips(){
   document.getElementById("tagChips").innerHTML = settings.tags
-    .map(t=>`<button class="chip tag ${pendingTags.has(t)?"active":""}" onclick="toggleTag('${esc(t)}')">${esc(t)}</button>`).join("");
+    .map(t=>{const c=tagColor(t);return `<button class="chip tag ${pendingTags.has(t)?"active":""}" onclick="toggleTag('${esc(t)}')" style="border-color:${c}"><i class="tag-dot" style="background:${c}"></i>${esc(t)}</button>`;}).join("");
 }
 function toggleTag(t){
   if (pendingTags.has(t)) pendingTags.delete(t); else pendingTags.add(t);
@@ -1142,10 +1194,14 @@ function toggleTag(t){
 function addTagFromInput(){
   const el=document.getElementById("newTag"); const v=el.value.trim();
   if (!v) return;
-  if (!settings.tags.includes(v)) settings.tags.push(v);
+  if (!settings.tags.includes(v)){ settings.tags.push(v); ensureTagColor(v); }
   saveSettingsObj();
   pendingTags.add(v); el.value=""; renderTagChips();
 }
+// #13: tag color helpers
+function tagColor(t){ if(settings.tagColors&&settings.tagColors[t]) return settings.tagColors[t]; const i=(settings.tags||[]).indexOf(t); return TAG_PALETTE[(i<0?0:i)%TAG_PALETTE.length]; }
+function ensureTagColor(t){ if(!settings.tagColors) settings.tagColors={}; if(!settings.tagColors[t]){ const i=(settings.tags||[]).indexOf(t); settings.tagColors[t]=TAG_PALETTE[(i<0?0:i)%TAG_PALETTE.length]; } }
+function setTagColor(i,hex){ if(settings.tags[i]){ settings.tagColors[settings.tags[i]]=hex; saveSettingsObj(); } }
 
 /* --- Quick buttons --- */
 function renderQuickButtons(){
@@ -1170,8 +1226,30 @@ function quickLog(i){
    6. LIMIT & REMINDERS
    =================================================================== */
 function todaysHits(){ const k=dayKey(new Date()); return log.filter(x=>dayKey(x.time)===k); }
+// #15: goal bank — unused daily allowance carries forward (capped at 2× limit)
+function computeGoalBank(){
+  const limit = +settings.dailyLimit || 0;
+  if (!limit || !settings.goalBankEnabled || !log.length) return 0;
+  const isGrams = usingGrams();
+  const cap = limit * 2;
+  const todayK = dayKey(new Date());
+  const firstK = [...new Set(log.map(x=>dayKey(x.time)))].sort()[0];
+  let bank = 0;
+  let cur = new Date(firstK + "T12:00:00");
+  const end = new Date(todayK + "T12:00:00");
+  while (cur < end){
+    const k = dayKey(cur);
+    const used = isGrams ? dayGrams(k) : log.filter(x=>dayKey(x.time)===k).length;
+    bank = Math.max(0, bank + (limit - used));
+    if (bank > cap) bank = cap;
+    cur = new Date(cur.getTime() + 86400000);
+  }
+  return bank;
+}
 function renderLimit(){
   const limit = +settings.dailyLimit || 0;
+  const bank = computeGoalBank();
+  const effLimit = limit + bank;
   const isGrams = usingGrams();
   const used = isGrams ? dayGrams(dayKey(new Date())) : todaysHits().length;
   const usedTxt = isGrams ? gramsFmt(used) : used;
@@ -1179,6 +1257,12 @@ function renderLimit(){
   const arc = document.getElementById("ringArc");
   const C = 326.7; // 2*pi*52
   const notice = document.getElementById("limitNotice");
+  const bankEl = document.getElementById("goalBankStat");
+  if (bankEl){
+    if (!limit) bankEl.textContent = "—";
+    else if (!settings.goalBankEnabled) bankEl.textContent = "off";
+    else bankEl.textContent = isGrams ? gramsFmt(bank) : bank;
+  }
   if (limit <= 0){
     arc.setAttribute("stroke-dashoffset", C);
     arc.setAttribute("stroke","var(--muted2)");
@@ -1186,33 +1270,36 @@ function renderLimit(){
     notice.innerHTML = '<div class="notice ok">No daily limit set. Set one in ⚙️ to see progress here.</div>';
     return;
   }
-  const pct = Math.min(used/limit, 1);
+  const pct = Math.min(used/effLimit, 1);
   arc.setAttribute("stroke-dashoffset", C*(1-pct));
+  const effTxt = isGrams ? gramsFmt(effLimit) : effLimit;
   const limitTxt = isGrams ? gramsFmt(limit) : limit;
-  document.getElementById("ringSub").textContent = `${usedTxt} / ${limitTxt}`;
+  document.getElementById("ringSub").textContent = bank>0 ? `${usedTxt} / ${effTxt}` : `${usedTxt} / ${limitTxt}`;
   let color = "var(--green-bright)", cls="ok", msg="";
-  const u = r4(used), l = r4(limit);
+  const u = r4(used), l = r4(effLimit);
+  const bankNote = bank>0 ? (isGrams ? ` (${gramsFmt(limit)} + ${gramsFmt(bank)} banked)` : ` (${limit} + ${bank} banked)`) : "";
   if (u >= l){
     color = "var(--red)"; cls="at";
     msg = isGrams
-      ? `You've reached your daily goal of ${gramsFmt(limit)}. Logging still works — record every hit accurately.`
-      : `You've reached your daily goal of ${limit} hits. Logging still works — record every hit accurately.`;
-  } else if (settings.warnAt80 && u >= r4(limit*0.8)){
+      ? `You've reached your daily goal of ${gramsFmt(effLimit)}${bankNote}. Logging still works — record every hit accurately.`
+      : `You've reached your daily goal of ${effLimit} hits${bankNote}. Logging still works — record every hit accurately.`;
+  } else if (settings.warnAt80 && u >= r4(effLimit*0.8)){
     color = "var(--amber)"; cls="warn";
-    msg = isGrams ? `You're near your daily goal (${gramsFmt(used)} of ${gramsFmt(limit)}).` : "You're near your daily goal.";
+    msg = isGrams ? `You're near your daily goal (${gramsFmt(used)} of ${gramsFmt(effLimit)}).` : "You're near your daily goal.";
   } else {
-    const remain = limit - used;
-    msg = isGrams ? `${gramsFmt(remain)} below your goal.` : `${remain} hit${remain===1?"":"s"} below your goal.`;
+    const remain = effLimit - used;
+    msg = isGrams ? `${gramsFmt(remain)} below your goal${bankNote}.` : `${remain} hit${remain===1?"":"s"} below your goal${bankNote}.`;
   }
   arc.setAttribute("stroke", color);
   notice.innerHTML = `<div class="notice ${cls}">${esc(msg)}</div>`;
 }
 function maybeShowLimitToast(){
   const limit = +settings.dailyLimit || 0; if (!limit) return;
+  const effLimit = limit + computeGoalBank();
   const isGrams = usingGrams();
   const used = isGrams ? dayGrams(dayKey(new Date())) : todaysHits().length;
-  const u = r4(used), l = r4(limit);
-  const at80 = isGrams ? (u >= r4(limit*0.8) && u < l) : (used === Math.ceil(limit*0.8));
+  const u = r4(used), l = r4(effLimit);
+  const at80 = isGrams ? (u >= r4(effLimit*0.8) && u < l) : (used === Math.ceil(effLimit*0.8));
   if (settings.warnAt80 && at80) toast("You're near your daily goal.");
   else if (u >= l) toast("You've reached your daily goal.");
 }
@@ -2035,6 +2122,8 @@ function populateFilters(){
 let currentDay = null; // "YYYY-MM-DD"; null = auto-pick the latest day with entries
 
 // Apply the search/filter inputs to the whole log → filtered list (newest-first).
+// #14: date-range filter state for the Entries card (in-memory only)
+let entriesFrom = null, entriesTo = null; // "YYYY-MM-DD" or null
 function filteredEntries(){
   const q=(document.getElementById("searchBox").value||"").toLowerCase().trim();
   const fd=document.getElementById("filterDevice").value;
@@ -2045,7 +2134,28 @@ function filteredEntries(){
   if (fd) list=list.filter(x=>x.device===fd);
   if (fs) list=list.filter(x=>x.size===fs);
   if (ft) list=list.filter(x=>(x.tags||[]).includes(ft));
+  if (entriesFrom) list=list.filter(x=>dayKey(x.time)>=entriesFrom);
+  if (entriesTo) list=list.filter(x=>dayKey(x.time)<=entriesTo);
   return list;
+}
+function entriesRangeChanged(){
+  entriesFrom = document.getElementById("filterFrom").value || null;
+  entriesTo   = document.getElementById("filterTo").value || null;
+  entriesFilterChanged();
+}
+function setEntriesRange(preset){
+  if (preset==="all"){ entriesFrom=null; entriesTo=null; }
+  else if (preset==="month"){ const d=new Date(); d.setDate(1); entriesFrom=dayKey(d); entriesTo=null; }
+  else { const d=new Date(); d.setDate(d.getDate()-preset); entriesFrom=dayKey(d); entriesTo=dayKey(new Date()); }
+  document.getElementById("filterFrom").value = entriesFrom || "";
+  document.getElementById("filterTo").value   = entriesTo || "";
+  entriesFilterChanged();
+}
+function clearEntriesRange(){
+  entriesFrom=null; entriesTo=null;
+  document.getElementById("filterFrom").value="";
+  document.getElementById("filterTo").value="";
+  entriesFilterChanged();
 }
 // Distinct day keys that have matching entries, sorted newest-first.
 function filteredDayKeys(){
@@ -2156,7 +2266,7 @@ function renderEntries(){
     if (x.energy!=null) extras.push("energy "+x.energy);
     if (x.sleepQuality!=null) extras.push("sleep "+x.sleepQuality);
     if (x.social) extras.push(x.social);
-    const tagline=(x.tags||[]).map(t=>`<i>${esc(t)}</i>`).join("");
+    const tagline=(x.tags||[]).map(t=>{const c=tagColor(t);return `<i style="background:${c}22;color:${c};border:1px solid ${c}55">${esc(t)}</i>`;}).join("");
     return `<div class="entry"><div class="meta">
       <b>${d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})}</b>
       <small>${esc(x.size)} • ${esc(x.device)} • ${gramsFmt(entryAmount(x))}${hitCost(x)?` • ${money(hitCost(x))}`:""}${x.note?` • ${esc(x.note)}`:""}</small>
@@ -2184,6 +2294,8 @@ function openSettings(){
   document.getElementById("setQuickLog").value = settings.quickLog?1:0;
   document.getElementById("setBlur").value = settings.blurUntilUnlocked?1:0;
   document.getElementById("setAutolock").value = settings.autoLockOnLoad?1:0;
+  document.getElementById("setGoalBank").value = settings.goalBankEnabled?1:0;
+  renderDeviceGphList();
   renderQBList();
   renderTagManager();
   document.getElementById("settingsModal").classList.remove("hidden");
@@ -2205,10 +2317,26 @@ function saveSettings(){
   settings.blurUntilUnlocked = document.getElementById("setBlur").value==="1";
   settings.autoLockOnLoad = document.getElementById("setAutolock").value==="1";
   settings.lowStashThreshold = +document.getElementById("setLowStash").value||7;
+  settings.goalBankEnabled = document.getElementById("setGoalBank").value==="1";
   saveSettingsObj();
   closeModal("settingsModal");
   renderAll();
   toast("Settings saved");
+}
+// #9: per-device grams-per-hit editor (writes directly to settings on input)
+function renderDeviceGphList(){
+  const el=document.getElementById("deviceGphList");
+  if(!el) return;
+  el.innerHTML = DEFAULT_DEVICES.map(d=>{
+    const v=settings.deviceGramsPerHit&&settings.deviceGramsPerHit[d];
+    return `<div class="dev-gph-row"><label>${esc(d)}</label><input type="number" step="0.01" min="0" placeholder="${settings.defaultGramsPerHit||0.02}" value="${v!=null?v:''}" oninput="setDeviceGph('${esc(d)}',this.value)"></div>`;
+  }).join("");
+}
+function setDeviceGph(d,val){
+  if(!settings.deviceGramsPerHit) settings.deviceGramsPerHit={};
+  if(val===""||val==null||isNaN(+val)||+val<=0) delete settings.deviceGramsPerHit[d];
+  else settings.deviceGramsPerHit[d]=+val;
+  saveSettingsObj();
 }
 function renderQBList(){
   document.getElementById("qbList").innerHTML = settings.quickButtons.map((b,i)=>`
@@ -2222,12 +2350,13 @@ function renderQBList(){
 }
 function addQuickButton(){ settings.quickButtons.push({label:"New",size:"Medium",device:"Pipe",amount:0.1}); saveSettingsObj(); renderQBList(); renderQuickButtons(); }
 function renderTagManager(){
-  document.getElementById("tagManager").innerHTML = settings.tags.map((t,i)=>
-    `<span class="pill">${esc(t)} <button onclick="removeTag(${i})" style="background:none;border:none;color:#ff7b7b;cursor:pointer;font-size:12px">•</button></span>`
-  ).join("") || '<p class="tiny">No tags yet.</p>';
+  document.getElementById("tagManager").innerHTML = settings.tags.map((t,i)=>{
+    const c=tagColor(t);
+    return `<span class="tag-mgr-pill" style="border-color:${c}"><input type="color" value="${c}" title="Tag color" oninput="setTagColor(${i},this.value)">${esc(t)} <button onclick="removeTag(${i})" style="background:none;border:none;color:#ff7b7b;cursor:pointer;font-size:12px">•</button></span>`;
+  }).join("") || '<p class="tiny">No tags yet.</p>';
 }
-function addTagFromMgr(){ const el=document.getElementById("newTagMgr"); const v=el.value.trim(); if(!v) return; if(!settings.tags.includes(v)) settings.tags.push(v); saveSettingsObj(); el.value=""; renderTagManager(); }
-function removeTag(i){ settings.tags.splice(i,1); saveSettingsObj(); renderTagManager(); }
+function addTagFromMgr(){ const el=document.getElementById("newTagMgr"); const v=el.value.trim(); if(!v) return; if(!settings.tags.includes(v)){ settings.tags.push(v); ensureTagColor(v); } saveSettingsObj(); el.value=""; renderTagManager(); }
+function removeTag(i){ const t=settings.tags[i]; settings.tags.splice(i,1); if(t&&settings.tagColors) delete settings.tagColors[t]; saveSettingsObj(); renderTagManager(); }
 
 /* ===================================================================
    15. PIN LOCK & PANIC
@@ -2838,6 +2967,38 @@ function clearAll(){
    =================================================================== */
 function closeModal(id){ document.getElementById(id).classList.add("hidden"); }
 
+// #10: streak counter — consecutive days with at least one hit
+function computeStreaks(){
+  if (!log.length) return {current:0, longest:0};
+  const todayK = dayKey(new Date());
+  const yK = addDaysAgo(1);
+  const days = [...new Set(log.map(x=>dayKey(x.time)))].sort(); // ascending
+  let longest=0, run=0, prev=null;
+  for (const k of days){
+    if (prev){
+      const expected = dayKey(new Date(new Date(prev+"T12:00:00").getTime()+86400000));
+      run = (k === expected) ? run+1 : 1;
+    } else run = 1;
+    if (run>longest) longest=run;
+    prev = k;
+  }
+  const hasToday = days.includes(todayK);
+  const hasYest  = days.includes(yK);
+  let current=0;
+  if (hasToday || hasYest){
+    let cursor = hasToday ? todayK : yK;
+    while (days.includes(cursor)){
+      current++;
+      cursor = dayKey(new Date(new Date(cursor+"T12:00:00").getTime()-86400000));
+    }
+  }
+  return {current, longest};
+}
+function renderStreaks(){
+  const s = computeStreaks();
+  setText("streakCurrent", s.current);
+  setText("streakLongest", s.longest);
+}
 function renderAll(){
   const todayKey=dayKey(new Date()), yKey=addDaysAgo(1);
   const today=log.filter(x=>dayKey(x.time)===todayKey).length;
@@ -2855,6 +3016,7 @@ function renderAll(){
   let longest=null;
   for(let i=1;i<sorted.length;i++){ const g=new Date(sorted[i].time)-new Date(sorted[i-1].time); if(!longest||g>longest) longest=g; }
   setText("longestGap", fmtDuration(longest));
+  renderStreaks();
 
   renderLimit();
   renderCostStats();
