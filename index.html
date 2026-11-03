@@ -1726,17 +1726,25 @@ function computeGoalBank(){
   if (!limit || !settings.goalBankEnabled || !log.length) return 0;
   const isGrams = usingGrams();
   const cap = limit * 2;
+  // Total each day once: the old version re-scanned the whole log for every
+  // day since your first entry, on every render.
+  const perDay = {};
+  log.forEach(x => {
+    const k = dayKey(x.time);
+    perDay[k] = (perDay[k] || 0) + (isGrams ? entryAmount(x) : 1);
+  });
+  const firstK = Object.keys(perDay).sort()[0];
   const todayK = dayKey(new Date());
-  const firstK = [...new Set(log.map(x=>dayKey(x.time)))].sort()[0];
+  if (!firstK || firstK >= todayK) return 0;
   let bank = 0;
-  let cur = new Date(firstK + "T12:00:00");
-  const end = new Date(todayK + "T12:00:00");
-  while (cur < end){
-    const k = dayKey(cur);
-    const used = isGrams ? dayGrams(k) : log.filter(x=>dayKey(x.time)===k).length;
+  const cur = new Date(firstK + "T12:00:00");
+  // setDate keeps the day counter aligned across DST changes; adding
+  // 86400000 ms drifts by an hour and can skip or repeat a day.
+  while (dayKey(cur) < todayK){
+    const used = perDay[dayKey(cur)] || 0;
     bank = Math.max(0, bank + (limit - used));
     if (bank > cap) bank = cap;
-    cur = new Date(cur.getTime() + 86400000);
+    cur.setDate(cur.getDate() + 1);
   }
   return bank;
 }
@@ -1771,18 +1779,25 @@ function renderLimit(){
   document.getElementById("ringSub").textContent = bank>0 ? `${usedTxt} / ${effTxt}` : `${usedTxt} / ${limitTxt}`;
   let color = "var(--green-bright)", cls="ok", msg="";
   const u = r4(used), l = r4(effLimit);
-  const bankNote = bank>0 ? (isGrams ? ` (${gramsFmt(limit)} + ${gramsFmt(bank)} banked)` : ` (${limit} + ${bank} banked)`) : "";
+  // Say what the goal is made of, what's been used, and what's left — so the
+  // numbers always add up on screen (1.31 used-goal minus 0.21 used = 1.1 left).
+  const bankNote = bank > 0
+    ? (isGrams ? ` (${gramsFmt(limit)} goal + ${gramsFmt(bank)} banked)` : ` (${limit} goal + ${bank} banked)`)
+    : "";
+  const usedOfGoal = isGrams
+    ? `${gramsFmt(used)} of ${gramsFmt(effLimit)} used`
+    : `${used} of ${effLimit} used`;
+  const remain = effLimit - used;
   if (u >= l){
     color = "var(--red)"; cls="at";
-    msg = isGrams
-      ? `You've reached your daily goal of ${gramsFmt(effLimit)}${bankNote}. Logging still works — record every hit accurately.`
-      : `You've reached your daily goal of ${effLimit} hits${bankNote}. Logging still works — record every hit accurately.`;
+    msg = `Daily goal reached — ${usedOfGoal}${bankNote}. Logging still works — record every hit accurately.`;
   } else if (settings.warnAt80 && u >= r4(effLimit*0.8)){
     color = "var(--amber)"; cls="warn";
-    msg = isGrams ? `You're near your daily goal (${gramsFmt(used)} of ${gramsFmt(effLimit)}).` : "You're near your daily goal.";
+    msg = `Close to your goal — ${usedOfGoal}${bankNote}.`;
   } else {
-    const remain = effLimit - used;
-    msg = isGrams ? `${gramsFmt(remain)} below your goal${bankNote}.` : `${remain} hit${remain===1?"":"s"} below your goal${bankNote}.`;
+    msg = isGrams
+      ? `${gramsFmt(remain)} left today — ${usedOfGoal}${bankNote}.`
+      : `${remain} hit${remain===1?"":"s"} left today — ${usedOfGoal}${bankNote}.`;
   }
   arc.setAttribute("stroke", color);
   notice.innerHTML = `<div class="notice ${cls}">${esc(msg)}</div>`;
@@ -4247,6 +4262,19 @@ function runSelfTests(){
     eq("esc neutralises markup", esc("<b>x</b>"), "&lt;b&gt;x&lt;/b&gt;");
     ok("PIN lockout escalates", pinLockSeconds(3) < pinLockSeconds(4) && pinLockSeconds(4) < pinLockSeconds(6));
     ok("PIN lockout caps at 15 min", pinLockSeconds(99) <= 900);
+
+    // Goal bank: unused allowance from past days, capped at 2x the limit
+    settings.dailyLimit = 1; settings.goalBankEnabled = true; settings.limitUnit = "grams";
+    settings.pricePerGram = 0; settings.costPerSize = {Small:0, Medium:0, Large:0};
+    stash = []; bustups = [];
+    log = [
+      {id:"g1", time:new Date(Date.now() - 3*86400000).toISOString(), amount:0.5, device:"Pipe", size:"Medium", tags:[]},
+      {id:"g2", time:new Date(Date.now() - 2*86400000).toISOString(), amount:1.0, device:"Pipe", size:"Medium", tags:[]},
+      {id:"g3", time:new Date(Date.now() - 1*86400000).toISOString(), amount:0.2, device:"Pipe", size:"Medium", tags:[]}
+    ];
+    eq("goal bank = 0.5 + 0 + 0.8", Math.round(computeGoalBank()*100)/100, 1.3);
+    settings.goalBankEnabled = false;
+    eq("goal bank off = 0", computeGoalBank(), 0);
 
     bustups = [{id:"b1", date:addDaysAgo(4), amount:2}, {id:"b2", date:addDaysAgo(2), amount:2}];
     eq("avg days between bust-ups", Math.round(avgDaysBetweenBustups()), 2);
