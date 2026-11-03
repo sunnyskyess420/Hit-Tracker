@@ -385,6 +385,7 @@
     <input type="password" id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="PIN" class="hidden">
     <div class="pin-pad" id="pinPad"></div>
     <button class="ghost" id="forgotPinBtn" style="margin-top:12px;width:100%" onclick="forgotPin()">Forgot PIN?</button>
+    <p class="tiny" style="margin-top:8px">There is no PIN recovery. Forgetting it means erasing the app's data.</p>
   </div>
 </div>
 
@@ -414,6 +415,12 @@
       <button class="secondary" onclick="dismissCheckinNudge()">Not now</button>
     </div>
   </div>
+
+    <!-- Backup reminder -->
+    <div id="backupReminder" style="display:none;margin-bottom:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--amber);border-radius:6px;font-size:13px;color:var(--text)">
+      <div id="backupReminderText"></div>
+      <button class="secondary" style="margin-top:8px;width:100%;background:var(--green);color:#fff;font-weight:700" onclick="exportJSON()">Back up now</button>
+    </div>
 
   <!-- ===== LOG CARD ===== -->
   <div class="card">
@@ -634,12 +641,6 @@
     </div>
 
     <div id="entries"></div>
-
-    <!-- Backup reminder -->
-    <div id="backupReminder" style="display:none;margin-bottom:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--amber);border-radius:6px;font-size:13px;color:var(--text)">
-      <div id="backupReminderText"></div>
-      <button class="secondary" style="margin-top:8px;width:100%;background:var(--green);color:#fff;font-weight:700" onclick="exportJSON()">Back up now</button>
-    </div>
 
     <div class="row">
       <button class="secondary" onclick="exportCSV()">Export CSV</button>
@@ -902,7 +903,8 @@
 
     
 <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Data &amp; backups</h2>
-    <p class="tiny">Your data lives only in this browser. It is mirrored to IndexedDB and a weekly file backup is saved to your downloads automatically — but keep a copy off-device too (cloud drive, USB) for real safety.</p>
+    <p class="tiny">Your data lives only in this browser. It is mirrored to IndexedDB, but that copy dies with the browser's site data — so keep a file backup off-device (cloud drive, USB).</p>
+    <p class="tiny" id="backupStatus"></p>
     <div class="row">
       <button class="secondary" style="background:var(--green);color:#fff;font-weight:700" onclick="exportJSON()">Back up to file</button>
       <button class="secondary" onclick="document.getElementById('importFile').click()">Restore from file</button>
@@ -3109,6 +3111,12 @@ function openSettings(){
   renderQBList();
   renderTagManager();
   showSettingsPane(settings.settingsTab || "logging", false);
+  const bstat = document.getElementById("backupStatus");
+  if (bstat){
+    bstat.textContent = settings.lastBackup
+      ? "Last backup file: " + new Date(settings.lastBackup).toLocaleString() + "."
+      : "No backup file saved yet.";
+  }
   const vs = document.getElementById("vaultStatus");
   if (vs) vs.textContent = vault
     ? "On — stored data is encrypted. Unlocking decrypts in memory only."
@@ -3345,22 +3353,19 @@ async function checkPin(){
   }
 }
 function forgotPin(){
-  if (vault){
-    if (confirm("The PIN is the only key to your encrypted data.\n\nRemoving it DELETES everything permanently \u2014 there is no recovery. Continue?")){
-      [KEY, SETTINGS_K, CHECKIN_K, STASH_K, BUSTUP_K, VAULT_K, LOCK_K].forEach(k => {
-        localStorage.removeItem(k);
-        idbPut(k, null);
-      });
-      vault = null; vaultKey = null;
-      location.reload();
-    }
-    return;
-  }
-  if (confirm("Forgot your PIN? This will remove the PIN (your data stays). Continue?")){
-    settings.pinHash=null; settings.pinLength=0; settings.pinAttempts=0; settings.pinLockUntil=0;
-    saveSettingsObj(); pinBuffer=""; unlocked=true; hideLock();
-    toast("PIN removed");
-  }
+  const vaulted = !!vault;
+  const msg = vaulted
+    ? "Your PIN is the only key to this encrypted data.\n\nNothing can be read without it, and there is no recovery. Typing ERASE deletes everything stored in this app."
+    : "The PIN locks the screen; it does not encrypt anything.\n\nWithout it, the only way in is to erase what is stored here. Typing ERASE deletes all of your data. This cannot be undone.";
+  const typed = prompt(msg, "");
+  if (typed == null) return;                                   // cancelled
+  if (typed.trim().toUpperCase() !== "ERASE"){ toast("Cancelled — nothing was erased"); return; }
+  [KEY, SETTINGS_K, CHECKIN_K, STASH_K, BUSTUP_K, VAULT_K, LOCK_K].forEach(k => {
+    localStorage.removeItem(k);
+    idbPut(k, null);
+  });
+  vault = null; vaultKey = null;
+  location.reload();
 }
 
 /* ---- PIN brute-force lockout: escalating delay after wrong attempts ---- */
