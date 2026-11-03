@@ -503,12 +503,12 @@
   <div class="card">
     <h2>Entries</h2>
     <div class="search-row">
-      <input type="search" id="searchBox" placeholder="Search notes, tags, device…" oninput="entriesFilterChanged()">
-    </div>
-    <div class="search-row">
       <select id="filterDevice" onchange="entriesFilterChanged()"><option value="">All devices</option></select>
       <select id="filterSize" onchange="entriesFilterChanged()"><option value="">All sizes</option></select>
       <select id="filterTag" onchange="entriesFilterChanged()"><option value="">All tags</option></select>
+    </div>
+    <div class="search-row">
+      <input type="search" id="searchBox" placeholder="Search notes, tags, device…" oninput="entriesFilterChanged()">
     </div>
     <div class="search-row" id="entriesRangeRow">
       <input type="date" id="filterFrom" onchange="entriesRangeChanged()" aria-label="From date" title="From">
