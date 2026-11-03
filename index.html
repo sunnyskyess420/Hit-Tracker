@@ -1377,6 +1377,7 @@ function loadAll(){
   bustups = bustups.map(b => ({
     id:     b.id != null ? b.id : (Date.now() + Math.random()),
     date:   b.date || dayKey(new Date()),
+    time:   (b.time && !isNaN(+new Date(b.time))) ? b.time : null,
     amount: +b.amount || 2,
     note:   b.note || ""
   }));
@@ -1909,7 +1910,7 @@ function stashBreakdown(){
     const amt = +s.amount || 0;
     events.push({ t:+new Date(s.date), order:0, kind:(s.type === "giveaway" ? "give" : "buy"), amt });
   });
-  bustups.forEach(b => events.push({ t:+new Date(b.date + "T12:00:00"), order:1, kind:"bust", amt:+b.amount || 0 }));
+  bustups.forEach(b => events.push({ t:bustTs(b), order:1, kind:"bust", amt:+b.amount || 0 }));
   log.forEach(x => events.push({ t:+new Date(x.time), order:2, kind:"hit", amt:entryAmount(x) }));
   // A physical count resets the inventory at that moment; everything after it
   // replays from what you actually weighed rather than from old estimates.
@@ -2045,7 +2046,7 @@ function renderStash(){
     if (bustups.length){
       const last = [...bustups].sort((a,b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))[0];
       const amt = +last.amount || 0;
-      const ts = +new Date(last.date + "T12:00:00");
+      const ts = bustTs(last);
       const fixAfter = settings.inventoryFix && +new Date(settings.inventoryFix.at) >= ts;
       const sinceG = log.filter(x => +new Date(x.time) >= ts).reduce((s,x)=>s+entryAmount(x),0);
       const leftG = fixAfter ? b.groundReady : Math.max(0, amt - sinceG);
@@ -2250,7 +2251,7 @@ function saveCount(){
 function calibrationEstimate(){
   if (!settings.inventoryFix || !bustups.length) return null;
   const last = [...bustups].sort((a,b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))[0];
-  const startTs = +new Date(last.date + "T12:00:00");
+  const startTs = bustTs(last);
   const countTs = +new Date(settings.inventoryFix.at);
   if (!(countTs >= startTs)) return null;             // counted before this batch
   const batch = +last.amount || 0;
@@ -2381,6 +2382,8 @@ function renderStashList(){
 // (usually 2g) without affecting the stash or the limit ring — those stay
 // driven by your hit log so there's no double-counting.
 function bustupsForDate(dateKey){ return bustups.filter(b=>b.date===dateKey); }
+// When did this batch happen? Timestamped for today's, noon for backfilled days.
+function bustTs(b){ return +new Date(b.time || (b.date + "T12:00:00")); }
 function bustupsInMonth(y, m){
   const prefix = `${y}-${String(m+1).padStart(2,"0")}-`;
   return bustups.filter(b=>b.date.startsWith(prefix));
@@ -2399,12 +2402,15 @@ function avgDaysBetweenBustups(){
   return totalDays / (dates.length-1);
 }
 function bustUp(dateKey, amount, note){
-  dateKey = dateKey || dayKey(new Date());
+  const now = new Date();
+  const day = dateKey || dayKey(now);
   const asked = +amount;
   amount = (!asked || asked <= 0) ? bustupAmount() : clampBustupGrams(asked);
   bustups.push({
     id: Date.now() + Math.random(),
-    date: dateKey,
+    date: day,
+    // A real time for today's batches; backfilled days keep date-only (noon).
+    time: (day === dayKey(now)) ? now.toISOString() : null,
     amount: amount,
     note: note || ""
   });
@@ -3965,6 +3971,7 @@ function validateBustup(b){
   return {
     id:     (b.id != null) ? b.id : (Date.now() + Math.random()),
     date:   day,
+    time:   (typeof b.time === "string" && !isNaN(+new Date(b.time))) ? new Date(b.time).toISOString() : null,
     amount: amount,
     note:   (typeof b.note === "string") ? b.note.slice(0, 1000) : ""
   };
@@ -4496,6 +4503,12 @@ function runSelfTests(){
     b = stashBreakdown();
     eq("count sets ground to what's in the jar", r4(b.groundReady), 0.33);
     eq("count sets the total", r4(b.totalOnHand), 0.33);
+    // A bust after a physical count must add to it, not be erased by it.
+    settings.inventoryFix = { at: new Date(Date.now() - 60000).toISOString(), total:0.33, ground:0.33 };
+    bustups = [{id:"nb", date:dayKey(new Date()), time:new Date().toISOString(), amount:2, note:""}];
+    b = stashBreakdown();
+    eq("bust after count adds 2g", r4(b.groundReady), 2.33);
+
     settings.inventoryFix = null;
 
     log = [];
