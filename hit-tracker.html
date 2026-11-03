@@ -323,7 +323,7 @@
     <div class="pin-display" id="pinDots"></div>
     <input type="password" id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="PIN" class="hidden">
     <div class="pin-pad" id="pinPad"></div>
-    <button class="ghost" style="margin-top:12px;width:100%" onclick="forgotPin()">Forgot PIN?</button>
+    <button class="ghost" id="forgotPinBtn" style="margin-top:12px;width:100%" onclick="forgotPin()">Forgot PIN?</button>
   </div>
 </div>
 
@@ -723,6 +723,13 @@
     <select id="setBlur"><option value="1">On</option><option value="0">Off (opaque cover)</option></select>
     <label>Auto-lock when app opens</label>
     <select id="setAutolock"><option value="1">On</option><option value="0">Off</option></select>
+
+    <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Data &amp; backups</h2>
+    <p class="tiny">Your data lives only in this browser. It is mirrored to IndexedDB and a weekly file backup is saved to your downloads automatically — but keep a copy off-device too (cloud drive, USB) for real safety.</p>
+    <div class="row">
+      <button class="secondary" style="background:var(--green);color:#fff;font-weight:700" onclick="exportJSON()">Back up to file</button>
+      <button class="secondary" onclick="document.getElementById('importFile').click()">Restore from file</button>
+    </div>
   </div>
 </div>
 
@@ -857,11 +864,15 @@ function defaultSettings(){
     ],
     tags: ["social","anxious","before bed","creative"],
     pinHash: null,            // SHA-256 hex of PIN+salt, or null
+    pinLength: 0,             // 4-6: length of the set PIN (0 until a legacy PIN's first unlock)
+    pinAttempts: 0,           // wrong PIN attempts since last successful unlock
+    pinLockUntil: 0,          // epoch ms the pad is locked until (0 = not locked)
     blurUntilUnlocked: true,
     autoLockOnLoad: true,
     sync: {enabled:false, url:"", auth:"", lastSync:null},
     lowStashThreshold: 7,   // warn when stash drops below this many grams (quarter oz default)
     lastBackup: null,       // ISO timestamp of last backup (for backup reminder)
+    lastAutoBackup: null,   // ISO timestamp of last automatic weekly file backup
     // --- v7 additions ---
     deviceGramsPerHit: {},  // #9: device -> grams; overrides defaultGramsPerHit when set
     tagColors: {},          // #13: tag name -> #rrggbb
@@ -909,6 +920,10 @@ function loadAll(){
   settings.tags = Array.isArray(settings.tags) ? settings.tags : defaultSettings().tags;
   settings.lowStashThreshold = +settings.lowStashThreshold || 7;
   settings.lastBackup = settings.lastBackup || null;
+  settings.lastAutoBackup = settings.lastAutoBackup || null;
+  settings.pinLength = +settings.pinLength || 0;
+  settings.pinAttempts = +settings.pinAttempts || 0;
+  settings.pinLockUntil = +settings.pinLockUntil || 0;
   // --- v7: ensure new fields exist, assign colors to any legacy tags ---
   settings.deviceGramsPerHit = (settings.deviceGramsPerHit && typeof settings.deviceGramsPerHit === "object") ? settings.deviceGramsPerHit : {};
   settings.tagColors = (settings.tagColors && typeof settings.tagColors === "object") ? settings.tagColors : {};
@@ -1005,11 +1020,95 @@ function numOrNull(v){ const n = Number(v); return (v==null || isNaN(n)) ? null 
 // Safe text setter — ignores missing elements so we can remove stat boxes without breaking JS
 function setText(id, txt){ const el = document.getElementById(id); if (el) el.textContent = txt; }
 
-function saveLog(){ localStorage.setItem(KEY, JSON.stringify(log)); }
-function saveSettingsObj(){ localStorage.setItem(SETTINGS_K, JSON.stringify(settings)); }
-function saveCheckins(){ localStorage.setItem(CHECKIN_K, JSON.stringify(checkins)); }
-function saveStash(){ localStorage.setItem(STASH_K, JSON.stringify(stash)); }
-function saveBustups(){ localStorage.setItem(BUSTUP_K, JSON.stringify(bustups)); }
+function saveLog(){ localStorage.setItem(KEY, JSON.stringify(log)); idbPut(KEY, log); }
+function saveSettingsObj(){ localStorage.setItem(SETTINGS_K, JSON.stringify(settings)); idbPut(SETTINGS_K, settings); }
+function saveCheckins(){ localStorage.setItem(CHECKIN_K, JSON.stringify(checkins)); idbPut(CHECKIN_K, checkins); }
+function saveStash(){ localStorage.setItem(STASH_K, JSON.stringify(stash)); idbPut(STASH_K, stash); }
+function saveBustups(){ localStorage.setItem(BUSTUP_K, JSON.stringify(bustups)); idbPut(BUSTUP_K, bustups); }
+
+/* ---- IndexedDB durability mirror ----
+   localStorage can be evicted by browser storage pressure, "clear site data",
+   or cache cleans; IndexedDB survives most of those. Every save mirrors its
+   key here, and on launch we recover from this mirror if localStorage is empty.
+   This is the safety net between manual off-device backups. */
+const IDB_NAME="hitTrackerIDB", IDB_STORE="kv";
+const IDB_KEYS=[KEY, SETTINGS_K, CHECKIN_K, STASH_K, BUSTUP_K];
+function idbOpen(){
+  return new Promise((resolve,reject)=>{
+    if(!window.indexedDB){ reject(new Error("no-idb")); return; }
+    const req=indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded=()=>{ if(!req.result.objectStoreNames.contains(IDB_STORE)) req.result.createObjectStore(IDB_STORE); };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+}
+// Fire-and-forget mirror of one key. Never throws — durability must not break saves.
+function idbPut(key, value){
+  idbOpen().then(db=>{
+    try{
+      const tx=db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete=()=>db.close();
+      tx.onerror=()=>db.close();
+    }catch(e){ try{db.close();}catch(_){} }
+  }).catch(()=>{});
+}
+// Read every mirrored key. Resolves to {key:value} (only keys present) or null.
+function idbRestore(){
+  return idbOpen().then(db=>new Promise(resolve=>{
+    try{
+      const tx=db.transaction(IDB_STORE, "readonly");
+      const store=tx.objectStore(IDB_STORE);
+      const snap={}; let pending=IDB_KEYS.length;
+      IDB_KEYS.forEach(k=>{
+        const r=store.get(k);
+        r.onsuccess=()=>{ if(r.result!==undefined) snap[k]=r.result; if(--pending===0){ db.close(); resolve(snap); } };
+        r.onerror=()=>{ if(--pending===0){ db.close(); resolve(snap); } };
+      });
+    }catch(e){ try{db.close();}catch(_){} resolve(null); }
+  })).catch(()=>null);
+}
+
+/* ---- Launch-time durability: persist storage, recover, weekly file backup ---- */
+function initDurability(){
+  // Ask the browser to mark our storage persistent so it resists eviction.
+  if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+  // If localStorage was wiped but the IDB mirror survived, restore + reload.
+  idbRestore().then(snap=>{
+    const idbHas = snap && (
+      (Array.isArray(snap[KEY]) && snap[KEY].length) ||
+      (Array.isArray(snap[CHECKIN_K]) && snap[CHECKIN_K].length) ||
+      (Array.isArray(snap[STASH_K]) && snap[STASH_K].length) ||
+      (Array.isArray(snap[BUSTUP_K]) && snap[BUSTUP_K].length));
+    const lsHas = log.length || checkins.length || stash.length || bustups.length;
+    if(idbHas && !lsHas){
+      if(Array.isArray(snap[KEY])) localStorage.setItem(KEY, JSON.stringify(snap[KEY]));
+      if(Array.isArray(snap[CHECKIN_K])) localStorage.setItem(CHECKIN_K, JSON.stringify(snap[CHECKIN_K]));
+      if(Array.isArray(snap[STASH_K])) localStorage.setItem(STASH_K, JSON.stringify(snap[STASH_K]));
+      if(Array.isArray(snap[BUSTUP_K])) localStorage.setItem(BUSTUP_K, JSON.stringify(snap[BUSTUP_K]));
+      if(snap[SETTINGS_K]) localStorage.setItem(SETTINGS_K, JSON.stringify(snap[SETTINGS_K]));
+      toast("Recovered your data from device backup — reloading…");
+      setTimeout(()=>location.reload(), 700);
+      return; // reload pending — skip auto-backup below
+    }
+    maybeAutoBackup();
+  }).catch(()=>{ maybeAutoBackup(); });
+}
+// Weekly off-device backup: auto-saves a JSON file once every 7 days.
+// Skipped for empty accounts and while the PIN lock is engaged (PIN users get
+// it right after they unlock, via checkPin).
+function maybeAutoBackup(){
+  if(settings.pinHash && !unlocked) return;
+  if(!log.length && !stash.length && !checkins.length && !bustups.length) return;
+  const last=settings.lastAutoBackup;
+  const days=last ? (Date.now()-new Date(last).getTime())/(1000*60*60*24) : Infinity;
+  if(days>7){
+    settings.lastAutoBackup=new Date().toISOString();
+    saveSettingsObj();   // persist timestamp so we don't re-fire this launch
+    exportJSON();        // downloads the file + sets lastBackup + renderAll
+    toast("Weekly backup saved — check your downloads");
+  }
+}
 
 /* ===================================================================
    4. UTILITIES
@@ -2099,10 +2198,17 @@ function renderCorrelations(){
   const avg=(arr,k)=>arr.length?(arr.reduce((s,x)=>s+x.ci[k],0)/arr.length).toFixed(1):"—";
   const fields=[["sleep","Sleep"],["mood","Mood"],["productivity","Productivity"],["wellbeing","Well-being"]];
   const medTxt = isGrams ? gramsFmt(med) : med;
-  el.innerHTML = `<p class="tiny" style="margin-bottom:8px">Median daily ${isGrams?"grams":"hits"} (last 30d): ${medTxt}. Higher-use = above median.</p>`+
+  const N = days.length;
+  // Small-sample caveat: a median split on a handful of days is anecdotal,
+  // not a pattern. Warn plainly so nobody reads signal into coincidence.
+  const caveat = N < 8 ? "n = "+N+" — very small sample; treat as anecdotal, not a pattern."
+              : N < 16 ? "n = "+N+" — small sample; treat with caution."
+              : "";
+  el.innerHTML = `<p class="tiny" style="margin-bottom:8px">Median daily ${isGrams?"grams":"hits"} (last 30d): ${medTxt}. Higher-use = above median. (n = ${N} check-in day${N===1?"":"s"})</p>`+
     `<div class="grid">`+
     fields.map(([k,l])=>`<div class="stat small"><b>${avg(higher,k)} / ${avg(lower,k)}</b><span>${l}: higher / lower</span></div>`).join("")+
-    `</div>`;
+    `</div>`+
+    (caveat ? `<p class="tiny" style="margin-top:8px;color:var(--muted)">${caveat}</p>` : "");
 }
 
 /* ===================================================================
@@ -2370,11 +2476,14 @@ async function savePin(){
   const v=document.getElementById("setPin").value.trim();
   if (!/^\d{4,6}$/.test(v)){ toast("PIN must be 4–6 digits"); return; }
   settings.pinHash = await hashPin(v);
+  settings.pinLength = v.length;     // record length so wrong guesses can be penalized at once
+  settings.pinAttempts = 0;
+  settings.pinLockUntil = 0;
   saveSettingsObj();
   document.getElementById("setPin").value="";
   toast("PIN set");
 }
-function clearPin(){ settings.pinHash=null; saveSettingsObj(); document.getElementById("setPin").value=""; toast("PIN removed"); unlocked=true; }
+function clearPin(){ settings.pinHash=null; settings.pinLength=0; settings.pinAttempts=0; settings.pinLockUntil=0; saveSettingsObj(); document.getElementById("setPin").value=""; toast("PIN removed"); unlocked=true; }
 
 let pinBuffer="";
 function engageLock(){
@@ -2395,9 +2504,20 @@ function hideLock(){
   document.getElementById("appWrap").style.filter="none";
 }
 function renderPinPad(){
-  document.getElementById("pinDots").textContent = "•".repeat(pinBuffer.length) || " ";
+  const locked = Date.now() < (settings.pinLockUntil||0);
+  const fb=document.getElementById("forgotPinBtn");
+  if (fb){ fb.disabled = locked; fb.style.opacity = locked ? "0.4" : "1"; }
+  document.getElementById("pinDots").textContent = locked ? "" : ("•".repeat(pinBuffer.length) || " ");
   const pad=document.getElementById("pinPad");
   pad.innerHTML = "";
+  if (locked){
+    const msg=document.createElement("div");
+    msg.style.cssText="grid-column:1/-1;text-align:center;padding:18px 8px;color:var(--muted);font-size:14px;line-height:1.5";
+    msg.innerHTML='🔒 Too many wrong attempts.<br>Try again in <b id="lockCountdown"></b>.';
+    pad.appendChild(msg);
+    startLockoutCountdown();
+    return;
+  }
   ["1","2","3","4","5","6","7","8","9","","0","⌫"].forEach(k=>{
     const b=document.createElement("button");
     b.textContent = k || "";
@@ -2407,18 +2527,72 @@ function renderPinPad(){
   });
 }
 async function checkPin(){
+  if (Date.now() < (settings.pinLockUntil||0)){ pinBuffer=""; renderPinPad(); return; }
   if (pinBuffer.length<4) return;
   const h=await hashPin(pinBuffer);
-  if (h===settings.pinHash){ unlocked=true; pinBuffer=""; hideLock(); renderAll(); vib(10); }
-  else if (pinBuffer.length>=6){
-    toast("Wrong PIN"); pinBuffer=""; renderPinPad(); vib([30,30,30]);
+  if (h===settings.pinHash){
+    if (!settings.pinLength) settings.pinLength = pinBuffer.length; // migrate a legacy PIN's length
+    settings.pinAttempts=0; settings.pinLockUntil=0; saveSettingsObj();
+    unlocked=true; pinBuffer=""; hideLock(); renderAll(); vib(10); maybeAutoBackup();
+  } else {
+    // Only penalize a "complete" guess: at the known PIN length, or (legacy) at the 6-digit max.
+    const target = settings.pinLength || 6;
+    if (pinBuffer.length >= target){
+      settings.pinAttempts = (+settings.pinAttempts||0) + 1;
+      const secs = pinLockSeconds(settings.pinAttempts);
+      if (secs > 0){
+        settings.pinLockUntil = Date.now() + secs*1000;
+        saveSettingsObj();
+        pinBuffer=""; renderPinPad(); startLockoutCountdown();
+        toast("Wrong PIN — locked " + fmtLockSecs(secs));
+      } else {
+        saveSettingsObj();
+        toast("Wrong PIN"); pinBuffer=""; renderPinPad(); vib([30,30,30]);
+      }
+    }
   }
 }
 function forgotPin(){
   if (confirm("Forgot your PIN? This will remove the PIN (your data stays). Continue?")){
-    settings.pinHash=null; saveSettingsObj(); pinBuffer=""; unlocked=true; hideLock();
+    settings.pinHash=null; settings.pinLength=0; settings.pinAttempts=0; settings.pinLockUntil=0;
+    saveSettingsObj(); pinBuffer=""; unlocked=true; hideLock();
     toast("PIN removed");
   }
+}
+
+/* ---- PIN brute-force lockout: escalating delay after wrong attempts ---- */
+let lockoutTimer=null;
+// Seconds to lock the pad for, given the running wrong-attempt count.
+function pinLockSeconds(attempts){
+  if (attempts < 3) return 0;
+  if (attempts === 3) return 10;
+  if (attempts === 4) return 30;
+  if (attempts === 5) return 60;
+  if (attempts === 6) return 300;
+  return 900; // 7+ wrong -> 15 min cap
+}
+function fmtLockSecs(s){
+  if (s < 60) return s + "s";
+  const m = Math.floor(s/60);
+  if (m < 60) return m + "m" + (s%60 ? " " + (s%60) + "s" : "");
+  const h = Math.floor(m/60);
+  return h + "h" + (m%60 ? " " + (m%60) + "m" : "");
+}
+// Tick the countdown shown on the locked pad; rebuild the digit grid when it expires.
+function startLockoutCountdown(){
+  if (lockoutTimer){ clearInterval(lockoutTimer); lockoutTimer=null; }
+  function tick(){
+    const remaining = Math.max(0, Math.ceil(((settings.pinLockUntil||0) - Date.now())/1000));
+    const el = document.getElementById("lockCountdown");
+    if (remaining <= 0){
+      if (lockoutTimer){ clearInterval(lockoutTimer); lockoutTimer=null; }
+      renderPinPad();
+      return;
+    }
+    if (el) el.textContent = fmtLockSecs(remaining);
+  }
+  tick();
+  lockoutTimer = setInterval(tick, 1000);
 }
 function panic(){
   document.getElementById("panicOverlay").classList.remove("hidden");
@@ -2885,49 +3059,211 @@ function exportJSON(){
   download("hit-tracker-backup.json", JSON.stringify(payload,null,2), "application/json");
   renderAll();
 }
+/* ---- Import validation: bounds-check every row before merging ----
+   A malformed paste (negative grams, future dates, absurd costs, non-numeric
+   ratings) is sanitized or rejected so it can't corrupt the log. Each array is
+   validated first; only clean rows merge, and rejected rows are tallied and
+   logged to the console. */
+// Date within (2000-01-01, now+1min]; null if invalid/future/ancient.
+function validDate(v){
+  if (v == null) return null;
+  const d = new Date(v), t = d.getTime();
+  if (isNaN(t)) return null;
+  if (t > Date.now() + 60*1000) return null;            // no future entries (1min clock grace)
+  if (t < new Date("2000-01-01").getTime()) return null;
+  return d;
+}
+// YYYY-MM-DD day key within (2000-01-01, today]; null otherwise.
+function validDayKey(v){
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const t = new Date(v + "T00:00:00").getTime();
+  if (isNaN(t)) return null;
+  if (t > Date.now() + 60*1000) return null;
+  if (t < new Date("2000-01-01").getTime()) return null;
+  return v;
+}
+// Grams/amount in (0, max]; null if missing/invalid/out of range.
+function validAmount(v, max){
+  if (v == null) return null;
+  const n = Number(v);
+  if (isNaN(n) || n <= 0 || n > max) return null;
+  return n;
+}
+// 1-5 rating (or null): round + clamp.
+function rating(v){
+  if (v == null) return null;
+  const n = Math.round(Number(v));
+  if (isNaN(n)) return null;
+  return Math.min(5, Math.max(1, n));
+}
+// Currency cost in [0, max]; null if missing/invalid, clamped if over max.
+function validCost(v, max){
+  if (v == null) return null;
+  const n = Number(v);
+  if (isNaN(n)) return null;
+  return Math.min(max, Math.max(0, n));
+}
+// Sanitize a hit entry; returns a clean entry or null (reject).
+function validateHit(x){
+  if (!x || typeof x !== "object") return null;
+  const t = validDate(x.time);
+  if (!t) return null;                                   // a hit without a sane time is useless
+  const tags = Array.isArray(x.tags)
+    ? x.tags.filter(tg => typeof tg === "string").map(tg => tg.slice(0, 30)).slice(0, 20)
+    : [];
+  return {
+    id:           (x.id != null) ? x.id : (Date.now() + Math.random()),
+    time:         t.toISOString(),
+    size:         SIZES.includes(x.size) ? x.size : "Medium",
+    device:       (typeof x.device === "string" && x.device.trim()) ? x.device : "Other",
+    note:         (typeof x.note === "string") ? x.note.slice(0, 1000) : "",
+    moodBefore:   rating(x.moodBefore),
+    moodAfter:    rating(x.moodAfter),
+    stress:       rating(x.stress),
+    energy:       rating(x.energy),
+    sleepQuality: rating(x.sleepQuality),
+    social:       (x.social === "alone" || x.social === "others") ? x.social : null,
+    tags:         tags,
+    cost:         validCost(x.cost, 1000),               // per-hit cost: [0, 1000]
+    amount:       validAmount(x.amount, 5)               // per-hit grams: (0, 5]
+  };
+}
+// Sanitize a stash entry; returns a clean entry or null.
+function validateStash(s){
+  if (!s || typeof s !== "object") return null;
+  const d = validDate(s.date);
+  if (!d) return null;
+  const amount = validAmount(s.amount, 1000);            // purchase grams: (0, 1000]
+  if (amount == null) return null;                       // a purchase with no/absurd amount is bogus
+  return {
+    id:     (s.id != null) ? s.id : (Date.now() + Math.random()),
+    date:   d.toISOString(),
+    type:   s.type === "giveaway" ? "giveaway" : "buy",
+    amount: amount,
+    price:  validCost(s.price, 100000) || 0,             // [0, 100000]; 0 if missing
+    source: (typeof s.source === "string") ? s.source.slice(0, 100) : "self",
+    note:   (typeof s.note === "string") ? s.note.slice(0, 1000) : ""
+  };
+}
+// Sanitize a bust-up entry; returns a clean entry or null.
+function validateBustup(b){
+  if (!b || typeof b !== "object") return null;
+  let day = validDayKey(b.date);
+  if (!day){ const d = validDate(b.date); if (!d) return null; day = dayKey(d); }
+  const amount = validAmount(b.amount, 100);             // grind batch: (0, 100]
+  if (amount == null) return null;
+  return {
+    id:     (b.id != null) ? b.id : (Date.now() + Math.random()),
+    date:   day,
+    amount: amount,
+    note:   (typeof b.note === "string") ? b.note.slice(0, 1000) : ""
+  };
+}
+// Sanitize a check-in; returns a clean entry or null. Every non-date field is a
+// 1-5 slider rating, so unknown future fields are clamped too.
+function validateCheckin(c){
+  if (!c || typeof c !== "object") return null;
+  let day = validDayKey(c.date);
+  if (!day){ const d = validDate(c.date); if (!d) return null; day = dayKey(d); }
+  const out = { date: day };
+  for (const k in c){
+    if (k === "date") continue;
+    const r = rating(c[k]);
+    if (r != null) out[k] = r;
+  }
+  return out;
+}
+// Clamp imported settings so a corrupt/malicious backup can't break the app or
+// lock you out. Never imports an active PIN lockout state.
+function sanitizeImportedSettings(s){
+  s.limitUnit = (s.limitUnit === "hits") ? "hits" : "grams";
+  s.dailyLimit = Math.max(0, Math.min(100, +s.dailyLimit || 0));
+  s.defaultGramsPerHit = Math.max(0.001, Math.min(1, +s.defaultGramsPerHit || 0.02));
+  s.pricePerGram = Math.max(0, Math.min(10000, +s.pricePerGram || 0));
+  s.lowStashThreshold = Math.max(0, Math.min(1000, +s.lowStashThreshold || 7));
+  s.warnAt80 = !!s.warnAt80;
+  s.quickLog = !!s.quickLog;
+  s.goalBankEnabled = !!s.goalBankEnabled;
+  s.autoLockOnLoad = !!s.autoLockOnLoad;
+  s.blurUntilUnlocked = !!s.blurUntilUnlocked;
+  s.currency = (typeof s.currency === "string" && CURRENCY_SYM[s.currency]) ? s.currency : "CAD";
+  if (typeof s.pinHash !== "string") s.pinHash = null;
+  s.pinLength = Math.max(0, Math.min(6, +s.pinLength || 0));
+  s.pinAttempts = 0;                                     // never import a lockout state
+  s.pinLockUntil = 0;
+  s.costPerSize = (s.costPerSize && typeof s.costPerSize === "object") ? {
+    Small:  validCost(s.costPerSize.Small, 1000) || 0,
+    Medium: validCost(s.costPerSize.Medium, 1000) || 0,
+    Large:  validCost(s.costPerSize.Large, 1000) || 0
+  } : { Small: 0, Medium: 0, Large: 0 };
+  s.quickButtons = Array.isArray(s.quickButtons)
+    ? s.quickButtons.filter(b => b && typeof b === "object").slice(0, 30)
+    : defaultSettings().quickButtons;
+  s.tags = Array.isArray(s.tags) ? s.tags.filter(t => typeof t === "string").slice(0, 50) : [];
+  s.lastBackup = (+new Date(s.lastBackup) > 0) ? s.lastBackup : null;
+  s.lastAutoBackup = (+new Date(s.lastAutoBackup) > 0) ? s.lastAutoBackup : null;
+}
+// Validate + dedupe + merge one array. Returns {added, rejected}.
+function mergeValidated(arr, validator, existing, getId, saveFn, label){
+  const ids = new Set(existing.map(x => String(getId(x))));
+  let added = 0, rejected = 0, logged = 0;
+  arr.forEach(x => {
+    const v = validator(x);
+    if (!v){
+      rejected++;
+      if (logged < 20){ console.warn("Import: rejected invalid " + label + ":", x); logged++; }
+      return;
+    }
+    const key = String(getId(v));
+    if (ids.has(key)) return;                            // dedupe: skip, don't count as rejected
+    ids.add(key); existing.push(v); added++;
+  });
+  if (added) saveFn();
+  return { added, rejected };
+}
+function mergeHits(arr){     return mergeValidated(arr, validateHit,     log,      x=>x.id,   saveLog,     "hit"); }
+function mergeCheckins(arr){ return mergeValidated(arr, validateCheckin, checkins, x=>x.date, saveCheckins,"check-in"); }
+function mergeStash(arr){    return mergeValidated(arr, validateStash,   stash,    x=>x.id,   saveStash,   "stash entry"); }
+function mergeBustups(arr){  return mergeValidated(arr, validateBustup,  bustups,  x=>x.id,   saveBustups, "bust-up"); }
+function reportImport(label, added, rejected){
+  if (rejected > 0){
+    console.warn("Import: rejected " + rejected + " invalid row(s) total. Inspect the rows logged above; re-export with exportJSON() for a clean backup.");
+    toast(label + " — " + added + " added, " + rejected + " rejected (see console)");
+  } else {
+    toast(label + " — " + added + " added");
+  }
+}
 function importJSON(event){
-  const file=event.target.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=()=>{
-    try{
-      const data=JSON.parse(reader.result);
-      // Backward compat: a bare array is the old v1 log.
-      if (Array.isArray(data)){
-        const ids=new Set(log.map(x=>String(x.id)));
-        data.forEach(x=>{ if(!ids.has(String(x.id))) log.push(migrateEntry(x)); });
-        saveLog(); renderAll(); toast("Log imported (v1 format)");
-        return;
-      }
-      if (data.log && Array.isArray(data.log)){
-        const ids=new Set(log.map(x=>String(x.id)));
-        data.log.forEach(x=>{ if(!ids.has(String(x.id))) log.push(migrateEntry(x)); });
-        saveLog();
-      }
-      if (Array.isArray(data.checkins)){
-        const seen=new Set(checkins.map(c=>c.date));
-        data.checkins.forEach(c=>{ if(!seen.has(c.date)) checkins.push(c); });
-        saveCheckins();
-      }
-      if (Array.isArray(data.stash)){
-        const ids=new Set(stash.map(s=>String(s.id)));
-        data.stash.forEach(s=>{ if(!ids.has(String(s.id))) stash.push(s); });
-        saveStash();
-      }
-      if (Array.isArray(data.bustups)){
-        const ids=new Set(bustups.map(b=>String(b.id)));
-        data.bustups.forEach(b=>{ if(!ids.has(String(b.id))) bustups.push(b); });
-        saveBustups();
-      }
-      if (data.settings){
-        settings=Object.assign(defaultSettings(), data.settings);
-        settings.sync=Object.assign({enabled:false,url:"",auth:"",lastSync:null}, settings.sync||{});
-        saveSettingsObj();
-      }
-      renderAll(); toast("Backup imported");
-    }catch(e){ alert("Could not read that backup file: "+e.message); }
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try { data = JSON.parse(reader.result); }
+    catch(e){ alert("Could not read that backup file: the JSON is malformed (" + e.message + ")."); return; }
+    // Backward compat: a bare array is the old v1 log.
+    if (Array.isArray(data)){
+      const r = mergeHits(data);
+      renderAll();
+      reportImport("Log imported (v1 format)", r.added, r.rejected);
+      return;
+    }
+    if (!data || typeof data !== "object"){ alert("Unrecognized backup format."); return; }
+    let added = 0, rejected = 0;
+    if (data.log && Array.isArray(data.log)){     const r = mergeHits(data.log);     added += r.added; rejected += r.rejected; }
+    if (Array.isArray(data.checkins)){            const r = mergeCheckins(data.checkins); added += r.added; rejected += r.rejected; }
+    if (Array.isArray(data.stash)){               const r = mergeStash(data.stash);  added += r.added; rejected += r.rejected; }
+    if (Array.isArray(data.bustups)){             const r = mergeBustups(data.bustups); added += r.added; rejected += r.rejected; }
+    if (data.settings && typeof data.settings === "object"){
+      settings = Object.assign(defaultSettings(), data.settings);
+      sanitizeImportedSettings(settings);
+      settings.sync = Object.assign({enabled:false,url:"",auth:"",lastSync:null}, settings.sync || {});
+      saveSettingsObj();
+    }
+    renderAll();
+    reportImport("Backup imported", added, rejected);
   };
   reader.readAsText(file);
-  event.target.value="";
+  event.target.value = "";
 }
 function clearAll(){
   // Two-stage confirm: data only, or data + settings (full reset)
@@ -3086,6 +3422,10 @@ function init(){
       unpanic();
     }
   });
+
+  // Data durability: persist storage, recover from IndexedDB if localStorage
+  // was wiped, and auto-save a weekly file backup.
+  initDurability();
 }
 init();
 </script>
