@@ -519,7 +519,7 @@
           <div class="stat"><b id="todayGrams">—</b><span>Today (g)</span></div>
           <div class="stat"><b id="todayCost">—</b><span>Today's cost</span></div>
           <div class="stat"><b id="currentGap">—</b><span>Since last</span></div>
-          <div class="stat"><b id="goalBankStat">—</b><span>Goal bank</span></div>
+          <div class="stat"><b id="goalBankStat">—</b><span>Carried over</span></div>
         </div>
       </div>
     </div>
@@ -551,9 +551,9 @@
 
     <div class="gph-row">
       <span class="tiny" style="flex:1">Grams per hit</span>
-      <button class="gph-btn" onclick="adjustGph(-0.01)" aria-label="Decrease goal by 0.01" title="−0.01">−</button>
+      <button class="gph-btn" onclick="adjustGph(-0.01)" aria-label="Decrease grams per hit by 0.01" title="−0.01">−</button>
       <b id="gphDisplay">0.02g</b>
-      <button class="gph-btn" onclick="adjustGph(0.01)" aria-label="Increase goal by 0.01" title="+0.01">+</button>
+      <button class="gph-btn" onclick="adjustGph(0.01)" aria-label="Increase grams per hit by 0.01" title="+0.01">+</button>
     </div>
     <p class="tiny" id="gphNote" style="margin-top:4px"></p>
 
@@ -769,9 +769,9 @@
     <input type="number" id="setLimit" min="0" max="50" step="0.1" style="max-width:120px">
     <label>Warn at 80% (informational, never blocks)</label>
     <select id="setWarn"><option value="1">On</option><option value="0">Off</option></select>
-    <label>Goal bank — carry unused daily allowance forward</label>
+    <label>Carry over unused allowance</label>
     <select id="setGoalBank"><option value="0">Off</option><option value="1">On</option></select>
-    <p class="tiny">When on, allowance you don’t use each day accumulates as a “bank” (capped at 2× your daily limit), raising today’s effective limit. Flexibility without abandoning the goal.</p>
+    <p class="tiny">When on, grams you don’t use each day are added to the next day’s allowance (capped at 2× your daily limit). The Today card shows this as “carried over”.</p>
     <label>Default grams per hit (used when you don't enter an amount)</label>
     <input type="number" id="setDefaultGrams" min="0" step="0.01" style="max-width:120px" value="0.02">
     <p class="tiny">Since you don't know your hit count yet, the app estimates each hit at this weight. Adjust it as you learn your real per-hit amount. You can override per hit in “Add details”.</p>
@@ -1777,30 +1777,35 @@ function renderLimit(){
   const effTxt = isGrams ? gramsFmt(effLimit) : effLimit;
   const limitTxt = isGrams ? gramsFmt(limit) : limit;
   document.getElementById("ringSub").textContent = bank>0 ? `${usedTxt} / ${effTxt}` : `${usedTxt} / ${limitTxt}`;
-  let color = "var(--green-bright)", cls="ok", msg="";
+  let color = "var(--green-bright)", cls="ok", msg="", detail="";
   const u = r4(used), l = r4(effLimit);
-  // Say what the goal is made of, what's been used, and what's left — so the
-  // numbers always add up on screen (1.31 used-goal minus 0.21 used = 1.1 left).
-  const bankNote = bank > 0
-    ? (isGrams ? ` (${gramsFmt(limit)} goal + ${gramsFmt(bank)} banked)` : ` (${limit} goal + ${bank} banked)`)
-    : "";
-  const usedOfGoal = isGrams
-    ? `${gramsFmt(used)} of ${gramsFmt(effLimit)} used`
-    : `${used} of ${effLimit} used`;
+  // "limit" everywhere, never "goal": the setting is called Daily limit, and
+  // "goal" read like a target you had achieved. Headline = what's left,
+  // detail = exactly where that number comes from.
+  const limitLine = bank > 0
+    ? (isGrams ? `${gramsFmt(limit)} limit + ${gramsFmt(bank)} carried over` : `${limit} limit + ${bank} carried over`)
+    : (isGrams ? `${gramsFmt(limit)} limit` : `${limit} hits`);
+  const usedLine = isGrams
+    ? (bank > 0 ? `${gramsFmt(used)} used of ${gramsFmt(effLimit)}` : `${gramsFmt(used)} used of ${gramsFmt(limit)} limit`)
+    : (bank > 0 ? `${used} of ${effLimit} hits used` : `${used} of ${limit} hits used`);
   const remain = effLimit - used;
   if (u >= l){
     color = "var(--red)"; cls="at";
-    msg = `Daily goal reached — ${usedOfGoal}${bankNote}. Logging still works — record every hit accurately.`;
+    msg = "Daily limit reached";
+    detail = (bank > 0 ? `${usedLine} — ${limitLine}.` : `${usedLine}.`)
+      + " Logging still works — record every hit accurately.";
   } else if (settings.warnAt80 && u >= r4(effLimit*0.8)){
     color = "var(--amber)"; cls="warn";
-    msg = `Close to your goal — ${usedOfGoal}${bankNote}.`;
+    msg = "Close to your limit";
+    detail = bank > 0 ? `${usedLine} — ${limitLine}.` : `${usedLine}.`;
   } else {
-    msg = isGrams
-      ? `${gramsFmt(remain)} left today — ${usedOfGoal}${bankNote}.`
-      : `${remain} hit${remain===1?"":"s"} left today — ${usedOfGoal}${bankNote}.`;
+    msg = isGrams ? `${gramsFmt(remain)} left today` : `${remain} hit${remain===1?"":"s"} left today`;
+    detail = bank > 0 ? `${usedLine} — ${limitLine}.` : `${usedLine}.`;
   }
   arc.setAttribute("stroke", color);
-  notice.innerHTML = `<div class="notice ${cls}">${esc(msg)}</div>`;
+  notice.innerHTML = `<div class="notice ${cls}">${esc(msg)}`
+    + (detail ? `<div class="tiny" style="margin-top:3px;opacity:.85">${esc(detail)}</div>` : "")
+    + `</div>`;
 }
 function maybeShowLimitToast(){
   const limit = +settings.dailyLimit || 0; if (!limit) return;
@@ -1809,8 +1814,8 @@ function maybeShowLimitToast(){
   const used = isGrams ? dayGrams(dayKey(new Date())) : todaysHits().length;
   const u = r4(used), l = r4(effLimit);
   const at80 = isGrams ? (u >= r4(effLimit*0.8) && u < l) : (used === Math.ceil(effLimit*0.8));
-  if (settings.warnAt80 && at80) toast("You're near your daily goal.");
-  else if (u >= l) toast("You've reached your daily goal.");
+  if (settings.warnAt80 && at80) toast("You're near your daily limit.");
+  else if (u >= l) toast("You've reached your daily limit.");
 }
 
 /* ===================================================================
