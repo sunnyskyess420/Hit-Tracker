@@ -316,7 +316,7 @@
 <body>
 
 <!-- ===== LOCK OVERLAY (shown when PIN enabled & locked) ===== -->
-<div id="lockOverlay" class="overlay hidden">
+<div id="lockOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Locked">
   <div class="lock-box">
     <h2>Locked</h2>
     <p>Enter your PIN to view your tracker. This is basic privacy, not encryption.</p>
@@ -337,7 +337,7 @@
   <header class="topbar">
     <h1>Sunnys Hit Tracker</h1>
     <button class="ico-btn" title="Lock" onclick="engageLock()">🔒</button>
-    <button class="ico-btn" title="Panic hide" onclick="panic()">😱</button>
+    <button class="ico-btn" aria-label="Panic hide" title="Panic hide" onclick="panic()">😱</button>
     <button class="ico-btn" title="Settings" onclick="openSettings()">⚙️</button>
   </header>
   <p class="sub">Private • local • no account</p>
@@ -464,9 +464,9 @@
 
     <div class="gph-row">
       <span class="tiny" style="flex:1">Grams per hit</span>
-      <button class="gph-btn" onclick="adjustGph(-0.01)" title="−0.01">−</button>
+      <button class="gph-btn" onclick="adjustGph(-0.01)" aria-label="Decrease goal by 0.01" title="−0.01">−</button>
       <b id="gphDisplay">0.02g</b>
-      <button class="gph-btn" onclick="adjustGph(0.01)" title="+0.01">+</button>
+      <button class="gph-btn" onclick="adjustGph(0.01)" aria-label="Increase goal by 0.01" title="+0.01">+</button>
     </div>
     <p class="tiny" id="gphNote" style="margin-top:4px"></p>
 
@@ -553,9 +553,9 @@
   </div>
 
   <!-- ===== REPORT MODAL (pick date range, then generate printable PDF) ===== -->
-  <div id="reportModal" class="overlay hidden" onclick="if(event.target===this)closeModal('reportModal')">
+  <div id="reportModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Report" onclick="if(event.target===this)closeModal('reportModal')">
     <div class="sheet">
-      <button class="sheet-close" onclick="closeModal('reportModal')">×</button>
+      <button class="sheet-close" aria-label="Close" onclick="closeModal('reportModal')">×</button>
       <h2>Printable report</h2>
       <p class="tiny" style="margin-top:0">Pick a date range. The report opens in a new window — use your browser's "Save as PDF" (Ctrl/Cmd+P → Destination → Save as PDF).</p>
 
@@ -627,18 +627,19 @@
 </div><!-- /wrap -->
 
 <!-- ===== DAY DETAIL MODAL ===== -->
-<div id="dayModal" class="overlay hidden" onclick="if(event.target===this)closeModal('dayModal')">
+<div id="dayModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Day details" onclick="if(event.target===this)closeModal('dayModal')">
   <div class="sheet">
-    <button class="sheet-close" onclick="closeModal('dayModal')">×</button>
+    <button class="sheet-close" aria-label="Close" onclick="closeModal('dayModal')">×</button>
     <h2 id="dayModalTitle">Day</h2>
     <div id="dayModalBody"></div>
+    <button class="secondary" style="margin-top:10px;width:100%" onclick="openReupEditor(dayModalKey)">» Mark reup for this day</button>
   </div>
 </div>
 
 <!-- ===== CHECK-IN MODAL ===== -->
-<div id="checkinModal" class="overlay hidden" onclick="if(event.target===this)closeModal('checkinModal')">
+<div id="checkinModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Daily check-in" onclick="if(event.target===this)closeModal('checkinModal')">
   <div class="sheet">
-    <button class="sheet-close" onclick="closeModal('checkinModal')">×</button>
+    <button class="sheet-close" aria-label="Close" onclick="closeModal('checkinModal')">×</button>
     <h2>Daily check-in</h2>
     <p class="muted" id="checkinDate" style="margin:0 0 12px;font-size:12px"></p>
     <div id="checkinSliders"></div>
@@ -647,13 +648,13 @@
 </div>
 
 <!-- ===== SETTINGS MODAL ===== -->
-<div id="settingsModal" class="overlay hidden" onclick="if(event.target===this)closeModal('settingsModal')">
+<div id="settingsModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Settings" onclick="if(event.target===this)closeModal('settingsModal')">
   <div class="sheet">
     <div class="sheet-head">
       <h2>Settings</h2>
       <div class="sheet-head-actions">
         <button class="secondary save-top" onclick="saveSettings()">Save settings</button>
-        <button class="sheet-close" onclick="closeModal('settingsModal')">×</button>
+        <button class="sheet-close" aria-label="Close" onclick="closeModal('settingsModal')">×</button>
       </div>
     </div>
 
@@ -734,9 +735,9 @@
 </div>
 
 <!-- ===== STASH MODAL ===== -->
-<div id="stashModal" class="overlay hidden" onclick="if(event.target===this)closeModal('stashModal')">
+<div id="stashModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Stash" onclick="if(event.target===this)closeModal('stashModal')">
   <div class="sheet">
-    <button class="sheet-close" onclick="closeModal('stashModal')">×</button>
+    <button class="sheet-close" aria-label="Close" onclick="closeModal('stashModal')">×</button>
     <h2>Stash</h2>
     <p class="tiny" style="margin:0 0 12px">Add each purchase or gift. The app calculates your effective $/g, per-hit cost, and how many hits you have left — no math required.</p>
 
@@ -768,9 +769,9 @@
 </div>
 
 <!-- ===== REUP EDITOR MODAL (right-click a calendar day) ===== -->
-<div id="reupEditorModal" class="overlay hidden" onclick="if(event.target===this)closeModal('reupEditorModal')">
+<div id="reupEditorModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Mark reup" onclick="if(event.target===this)closeModal('reupEditorModal')">
   <div class="sheet">
-    <button class="sheet-close" onclick="closeModal('reupEditorModal')">×</button>
+    <button class="sheet-close" aria-label="Close" onclick="closeModal('reupEditorModal')">×</button>
     <h2>Mark reup</h2>
     <p class="muted" id="reupEditorDate" style="margin:0 0 12px;font-size:12px"></p>
     <input type="hidden" id="reupEditorKey">
@@ -804,9 +805,9 @@
 </div>
 
 <!-- ===== GIVEAWAY MODAL (give away / sell weed) ===== -->
-<div id="giveawayModal" class="overlay hidden" onclick="if(event.target===this)closeModal('giveawayModal')">
+<div id="giveawayModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Give away" onclick="if(event.target===this)closeModal('giveawayModal')">
   <div class="sheet">
-    <button class="sheet-close" onclick="closeModal('giveawayModal')">×</button>
+    <button class="sheet-close" aria-label="Close" onclick="closeModal('giveawayModal')">×</button>
     <h2>Give away / sell</h2>
     <p class="tiny" id="giveawayHint" style="margin:0 0 12px"></p>
 
@@ -1576,7 +1577,7 @@ function openStash(){
   document.getElementById("stashNote").value = "";
   onStashTypeChange(); // show/hide price field
   renderStashList();
-  document.getElementById("stashModal").classList.remove("hidden");
+  openModal("stashModal");
 }
 function onStashTypeChange(){
   const type = document.getElementById("stashType").value;
@@ -1641,7 +1642,7 @@ function openGiveaway(){
     ? `You currently have ${gramsFmt(Math.max(0,onHand))} on hand.`
     : "No stash on hand — add a reup first.";
   renderGiveawayList();
-  document.getElementById("giveawayModal").classList.remove("hidden");
+  openModal("giveawayModal");
 }
 function addGiveaway(){
   const amount = +document.getElementById("giveawayAmount").value || 0;
@@ -1781,7 +1782,7 @@ function openReupEditor(dateKey){
   document.getElementById("reupEditorSource").value = "self";
   document.getElementById("reupEditorNote").value = "";
   renderReupEditorList(dateKey);
-  document.getElementById("reupEditorModal").classList.remove("hidden");
+  openModal("reupEditorModal");
 }
 function renderReupEditorList(dateKey){
   const el = document.getElementById("reupEditorList");
@@ -1849,7 +1850,7 @@ function openCheckin(){
       <div class="top"><span>${lbl}</span><b id="ci_${k}">${c[k]}</b></div>
       <input type="range" min="1" max="5" value="${c[k]}" oninput="document.getElementById('ci_${k}').textContent=this.value" data-k="${k}">
     </div>`).join("");
-  document.getElementById("checkinModal").classList.remove("hidden");
+  openModal("checkinModal");
 }
 function saveCheckin(){
   const today = dayKey(new Date());
@@ -1938,7 +1939,9 @@ function monthCostForMonth(y,m){
 }
 function calMove(n){ calMonth.setMonth(calMonth.getMonth()+n); calRender(); }
 function calToday(){ calMonth = new Date(); calRender(); }
+let dayModalKey=null;
 function openDay(k){
+  dayModalKey=k;
   const dayEntries = log.filter(x=>dayKey(x.time)===k).sort((a,b)=>new Date(a.time)-new Date(b.time));
   const dayBustups = bustupsForDate(k);
   const dayReups = stash.filter(s=>s.type!=="giveaway" && dayKey(s.date)===k);
@@ -2020,7 +2023,7 @@ function openDay(k){
     }).join("");
   }
   document.getElementById("dayModalBody").innerHTML = html;
-  document.getElementById("dayModal").classList.remove("hidden");
+  openModal("dayModal");
 }
 
 /* ===================================================================
@@ -2404,7 +2407,7 @@ function openSettings(){
   renderDeviceGphList();
   renderQBList();
   renderTagManager();
-  document.getElementById("settingsModal").classList.remove("hidden");
+  openModal("settingsModal");
 }
 function saveSettings(){
   settings.limitUnit = document.getElementById("setLimitUnit").value;
@@ -2498,10 +2501,13 @@ function showLock(){
   } else {
     document.getElementById("appWrap").style.filter="none";
   }
+  _lastFocus=document.activeElement;
+  const f=_focusables(ov); if (f[0]) f[0].focus();
 }
 function hideLock(){
   document.getElementById("lockOverlay").classList.add("hidden");
   document.getElementById("appWrap").style.filter="none";
+  if (_lastFocus && document.contains(_lastFocus)){ try{ _lastFocus.focus(); }catch(e){} _lastFocus=null; }
 }
 function renderPinPad(){
   const locked = Date.now() < (settings.pinLockUntil||0);
@@ -2521,6 +2527,7 @@ function renderPinPad(){
   ["1","2","3","4","5","6","7","8","9","","0","⌫"].forEach(k=>{
     const b=document.createElement("button");
     b.textContent = k || "";
+    if (k==="⌫") b.setAttribute("aria-label","Backspace");
     if (k===""){ b.style.visibility="hidden"; }
     b.onclick = ()=>{ if(k==="⌫"){ pinBuffer=pinBuffer.slice(0,-1); renderPinPad(); return;} pinBuffer+=k; renderPinPad(); checkPin(); };
     pad.appendChild(b);
@@ -2619,7 +2626,7 @@ function download(filename, content, type){
 // Open the report modal with a sensible default (last 30 days).
 function openReportModal(){
   setReportRange(30);
-  document.getElementById("reportModal").classList.remove("hidden");
+  openModal("reportModal");
 }
 
 // Set the from/to date inputs from a preset: 7, 30, "month", or "all".
@@ -3301,7 +3308,71 @@ function clearAll(){
 /* ===================================================================
    18. RENDER ALL + INIT
    =================================================================== */
-function closeModal(id){ document.getElementById(id).classList.add("hidden"); }
+/* ---- Modal accessibility: shared open/close with focus trap + Esc ---- */
+// Remembers the element that had focus before a modal opened, so it can be
+// restored when the modal closes (keyboard users return to where they were).
+let _lastFocus = null;
+// Stack of open standard-modal ids, in open order (last = topmost).
+let _modalStack = [];
+// All tab-reachable elements inside a container that are actually visible.
+function _focusables(el){
+  return Array.from(el.querySelectorAll(
+    'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+  )).filter(n => n.offsetParent !== null);
+}
+// Open a modal: remember focus, show it, and move focus inside so keyboard
+// users land within the dialog rather than the hidden page behind it.
+function openModal(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  _lastFocus = document.activeElement;
+  _modalStack.push(id);
+  el.classList.remove("hidden");
+  const f = _focusables(el);
+  const target = f.find(n => !n.classList.contains("sheet-close")) || f[0];
+  if (target) target.focus();
+}
+function closeModal(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add("hidden");
+  _modalStack = _modalStack.filter(x => x !== id);
+  if (_lastFocus && document.contains(_lastFocus)){ try{ _lastFocus.focus(); }catch(e){} }
+  _lastFocus = null;
+}
+// Global keyboard handling for every visible dialog:
+//   - Tab / Shift+Tab wraps focus within the topmost dialog (focus trap).
+//   - Escape closes a standard modal — but NEVER the PIN lock (that would
+//     bypass it). The lock still gets Tab trapping.
+document.addEventListener("keydown", function(e){
+  const lock = document.getElementById("lockOverlay");
+  const lockOpen = lock && !lock.classList.contains("hidden");
+  if (lockOpen){
+    if (e.key === "Tab"){
+      const f = _focusables(lock);
+      if (f.length >= 2){
+        if (e.shiftKey && document.activeElement === f[0]){ e.preventDefault(); f[f.length-1].focus(); }
+        else if (!e.shiftKey && document.activeElement === f[f.length-1]){ e.preventDefault(); f[0].focus(); }
+      }
+    }
+    return;   // no Escape while the PIN lock is up
+  }
+  // Escape exits the instant-hide panic overlay (no modal involved).
+  if (e.key === "Escape"){
+    const panic = document.getElementById("panicOverlay");
+    if (panic && !panic.classList.contains("hidden")){ e.preventDefault(); unpanic(); return; }
+  }
+  if (!_modalStack.length) return;
+  const top = document.getElementById(_modalStack[_modalStack.length-1]);
+  if (!top || top.classList.contains("hidden")){ _modalStack.pop(); return; }
+  if (e.key === "Escape"){ e.preventDefault(); closeModal(top.id); return; }
+  if (e.key === "Tab"){
+    const f = _focusables(top);
+    if (f.length < 2) return;
+    if (e.shiftKey && document.activeElement === f[0]){ e.preventDefault(); f[f.length-1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length-1]){ e.preventDefault(); f[0].focus(); }
+  }
+});
 
 // #10: streak counter — consecutive days with at least one hit
 function computeStreaks(){
@@ -3414,14 +3485,6 @@ function init(){
   if (settings.pinHash && settings.autoLockOnLoad){
     unlocked=false; renderPinPad(); showLock();
   }
-
-  // keyboard: Escape closes modals / panic
-  document.addEventListener("keydown", e=>{
-    if (e.key==="Escape"){
-      ["dayModal","checkinModal","settingsModal"].forEach(closeModal);
-      unpanic();
-    }
-  });
 
   // Data durability: persist storage, recover from IndexedDB if localStorage
   // was wiped, and auto-save a weekly file backup.
