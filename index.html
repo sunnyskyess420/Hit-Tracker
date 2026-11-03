@@ -1833,9 +1833,8 @@ function stashTotals(){
 }
 // Grams on hand = net acquired − grams used (from hit log)
 function gramsOnHand(){
-  const t = stashTotals();
-  const used = log.reduce((s,x)=>s+entryAmount(x),0);
-  return t.net - used;
+  // Same figure the stash card shows, so "hits remaining" can't disagree with it.
+  return stashBreakdown().totalOnHand;
 }
 // Total grams busted up (ground) from all bust-up markers
 function bustedUpTotal(){
@@ -1849,10 +1848,41 @@ function stashBreakdown(){
   const t = stashTotals();
   const busted = bustedUpTotal();
   const smoked = log.reduce((s,x)=>s+entryAmount(x),0);
-  const nugsOnHand = Math.max(0, t.net - busted);     // whole weed left
-  const groundReady = Math.max(0, busted - smoked);    // ground weed in your jar, not yet smoked
-  const totalOnHand = Math.max(0, t.net - smoked);     // everything you still have (nugs + ground)
-  return { acquired: t.bought, given: t.given, net: t.net, busted, smoked, nugsOnHand, groundReady, totalOnHand, spent: t.spent };
+
+  // Replay the history in date order rather than subtracting lifetime totals.
+  // A hit only draws on weed that existed at that moment — ground first, then
+  // whole nugs — so smoking from an earlier session can no longer eat into a
+  // batch you ground afterwards.
+  const events = [];
+  stash.forEach(s => {
+    const amt = +s.amount || 0;
+    events.push({ t:+new Date(s.date), order:0, kind:(s.type === "giveaway" ? "give" : "buy"), amt });
+  });
+  bustups.forEach(b => events.push({ t:+new Date(b.date + "T12:00:00"), order:1, kind:"bust", amt:+b.amount || 0 }));
+  log.forEach(x => events.push({ t:+new Date(x.time), order:2, kind:"hit", amt:entryAmount(x) }));
+  // same instant: acquire first, then grind, then smoke
+  events.sort((a,b) => (a.t - b.t) || (a.order - b.order));
+
+  let nugs = 0, ground = 0, fromGround = 0, fromNugs = 0;
+  events.forEach(e => {
+    if (e.kind === "buy"){ nugs += e.amt; return; }
+    if (e.kind === "give"){ nugs = Math.max(0, nugs - e.amt); return; }
+    if (e.kind === "bust"){
+      nugs -= Math.min(nugs, e.amt);   // move whole flower into the grinder
+      ground += e.amt;                 // trust the batch you actually ground
+      return;
+    }
+    const g = Math.min(ground, e.amt); // hits smoke the ground first...
+    ground -= g; fromGround += g;
+    const n = Math.min(nugs, e.amt - g); // ...then the nugs, if any
+    nugs -= n; fromNugs += n;
+  });
+
+  const nugsOnHand = Math.max(0, nugs);
+  const groundReady = Math.max(0, ground);
+  return { acquired: t.bought, given: t.given, net: t.net, busted, smoked,
+           smokedFromGround: fromGround, smokedFromNugs: fromNugs,
+           nugsOnHand, groundReady, totalOnHand: nugsOnHand + groundReady, spent: t.spent };
 }
 // Estimated hits remaining at default grams-per-hit
 function hitsRemaining(){
@@ -1977,12 +2007,15 @@ function renderStash(){
         // Stage 1: nugs (whole weed)
         `<div class="row-line"><span class="lbl">» Acquired (reups)</span><span class="val">${gramsFmt(b.acquired)}</span></div>` +
         (b.given > 0 ? `<div class="row-line"><span class="lbl">− Given away / sold</span><span class="val">${gramsFmt(b.given)}</span></div>` : "") +
-        `<div class="row-line"><span class="lbl">− Busted up (• ground)</span><span class="val">${gramsFmt(b.busted)}</span></div>` +
+        `<div class="row-line"><span class="lbl">− Busted up → ground</span><span class="val">${gramsFmt(b.busted)}</span></div>` +
+        (b.smokedFromNugs > 0 ? `<div class="row-line"><span class="lbl">− Smoked from whole nugs</span><span class="val">${gramsFmt(b.smokedFromNugs)}</span></div>` : "") +
         `<div class="row-line total"><span class="lbl">= Nugs on hand</span><span class="val">${gramsFmt(b.nugsOnHand)}</span></div>` +
-        // Stage 2: ground weed (ready to smoke)
-        `<div class="row-line" style="margin-top:8px"><span class="lbl">• Ground, ready to smoke</span><span class="val">${gramsFmt(b.busted)}</span></div>` +
-        `<div class="row-line"><span class="lbl">− Smoked (from hits)</span><span class="val">${gramsFmt(b.smoked)}</span></div>` +
-        `<div class="row-line total"><span class="lbl">= Ground remaining</span><span class="val">${gramsFmt(b.groundReady)}</span></div>` +
+        // Stage 2: ground weed (ready to smoke) — only when you actually grind
+        (b.busted > 0 ?
+          `<div class="row-line" style="margin-top:8px"><span class="lbl">• Ground made</span><span class="val">${gramsFmt(b.busted)}</span></div>` +
+          `<div class="row-line"><span class="lbl">− Smoked from ground</span><span class="val">${gramsFmt(b.smokedFromGround)}</span></div>` +
+          `<div class="row-line total"><span class="lbl">= Ground remaining</span><span class="val">${gramsFmt(b.groundReady)}</span></div>`
+          : "") +
         // Grand total
         `<div class="row-line total" style="border-top:2px solid var(--border2);margin-top:6px;padding-top:8px;font-size:16px"><span class="lbl">Total on hand</span><span class="val" style="font-size:18px">${gramsFmt(b.totalOnHand)}</span></div>` +
         (perHit ? `<div class="tiny" style="margin-top:6px">${perHit}</div>` : "");
@@ -4249,6 +4282,18 @@ function runSelfTests(){
     b = stashBreakdown();
     eq("smoking draws down ground", b.groundReady, 1.5);
     eq("total on hand nets to 27.5g", b.totalOnHand, 27.5);
+
+    // Reported case: 1.79g smoked BEFORE the 2g bust-up must not eat into it.
+    const iso = (n) => new Date(Date.now() - n*86400000).toISOString();
+    stash = [{id:"r1", date:iso(6), type:"buy", amount:28, price:0, source:"self", note:""}];
+    log = [{id:"r2", time:iso(4), amount:1.0, device:"Pipe", size:"Medium", tags:[]},
+           {id:"r3", time:iso(3), amount:0.79, device:"Pipe", size:"Medium", tags:[]}];
+    bustups = [{id:"r4", date:dayKey(new Date(Date.now() - 2*86400000)), amount:2, note:""}];
+    log.push({id:"r5", time:iso(1), amount:1.0, device:"Pipe", size:"Medium", tags:[]});
+    b = stashBreakdown();
+    eq("pre-bust smoking does not shrink the batch", r4(b.groundReady), 1);
+    eq("nugs = 28 - 1.79 - 2", r4(b.nugsOnHand), 24.21);
+    eq("total still nets out", r4(b.totalOnHand), 25.21);
 
     log = [];
     for (let i = 2; i >= 0; i--){
