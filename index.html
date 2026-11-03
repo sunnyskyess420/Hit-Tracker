@@ -560,6 +560,7 @@
     <div class="row">
       <button class="secondary" onclick="openStash()">Manage stash</button>
       <button class="secondary" onclick="openGiveaway()">Give away / sell</button>
+      <button class="secondary" onclick="openCount()">Count it</button>
     </div>
   </div>
 
@@ -900,6 +901,22 @@
   </div>
 </div>
 
+<!-- ===== COUNT MODAL (physical inventory count) ===== -->
+<div id="countModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Count what's on hand" onclick="if(event.target===this)closeModal('countModal')">
+  <div class="sheet">
+    <button class="sheet-close" aria-label="Close" onclick="closeModal('countModal')">×</button>
+    <h2>Count what's on hand</h2>
+    <p class="tiny">Weigh the jar and put the real numbers here. The app replays everything after this moment from your count instead of from estimated hits — so the card starts telling the truth again.</p>
+    <div class="chart-row">
+      <div><label>Total on hand (g)</label><input type="number" id="countTotal" step="0.01" min="0"></div>
+      <div><label>Of which ground (g)</label><input type="number" id="countGround" step="0.01" min="0"></div>
+    </div>
+    <p class="tiny" id="countHint" style="margin-top:6px"></p>
+    <button class="secondary" style="background:var(--green);color:#fff;width:100%;margin-top:10px" onclick="saveCount()">Save count</button>
+    <button class="secondary" style="width:100%;margin-top:8px" onclick="clearCount()">Remove count</button>
+  </div>
+</div>
+
 <!-- ===== STASH MODAL ===== -->
 <div id="stashModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Stash" onclick="if(event.target===this)closeModal('stashModal')">
   <div class="sheet">
@@ -1048,6 +1065,7 @@ function defaultSettings(){
     lowStashThreshold: 7,   // warn when stash drops below this many grams (quarter oz default)
     bustupGrams: 2,         // grams the "Bust up" button logs (editable in Settings -> Bust-up)
     monthlyBudget: 0,       // 0 = off; spend bar under the stats
+    inventoryFix: null,     // {at, total, ground} — a physical count that overrides earlier estimates
     lastStrain: null,       // remembered for one-tap logs
     tbreakStart: null,      // "YYYY-MM-DD" while a tolerance break is running
     tbreakGoalDays: 7,      // how long the break is meant to last
@@ -1150,6 +1168,13 @@ function applyState(state){
   settings.lowStashThreshold = +settings.lowStashThreshold || 7;
   settings.bustupGrams = clampBustupGrams(settings.bustupGrams);
   settings.monthlyBudget = Math.max(0, +settings.monthlyBudget || 0);
+  const fix = settings.inventoryFix;
+  settings.inventoryFix = (fix && typeof fix === "object"
+      && !isNaN(+fix.total) && !isNaN(+fix.ground) && +fix.total >= 0 && +fix.ground >= 0)
+    ? { at: isNaN(+new Date(fix.at)) ? new Date().toISOString() : fix.at,
+        total: +fix.total,
+        ground: Math.min(+fix.ground, +fix.total) }
+    : null;
   settings.deviceGramsPerHit = (settings.deviceGramsPerHit && typeof settings.deviceGramsPerHit === "object") ? settings.deviceGramsPerHit : {};
   settings.tagColors = (settings.tagColors && typeof settings.tagColors === "object") ? settings.tagColors : {};
 }
@@ -1249,6 +1274,13 @@ function loadAll(){
   settings.lowStashThreshold = +settings.lowStashThreshold || 7;
   settings.bustupGrams = clampBustupGrams(settings.bustupGrams);
   settings.monthlyBudget = Math.max(0, +settings.monthlyBudget || 0);
+  const fix = settings.inventoryFix;
+  settings.inventoryFix = (fix && typeof fix === "object"
+      && !isNaN(+fix.total) && !isNaN(+fix.ground) && +fix.total >= 0 && +fix.ground >= 0)
+    ? { at: isNaN(+new Date(fix.at)) ? new Date().toISOString() : fix.at,
+        total: +fix.total,
+        ground: Math.min(+fix.ground, +fix.total) }
+    : null;
   settings.lastStrain = (typeof settings.lastStrain === "string" && settings.lastStrain.trim()) ? settings.lastStrain.trim().slice(0, 60) : null;
   settings.tbreakStart = (typeof settings.tbreakStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(settings.tbreakStart)) ? settings.tbreakStart : null;
   settings.tbreakGoalDays = Math.max(1, Math.min(365, +settings.tbreakGoalDays || 7));
@@ -1865,11 +1897,22 @@ function stashBreakdown(){
   });
   bustups.forEach(b => events.push({ t:+new Date(b.date + "T12:00:00"), order:1, kind:"bust", amt:+b.amount || 0 }));
   log.forEach(x => events.push({ t:+new Date(x.time), order:2, kind:"hit", amt:entryAmount(x) }));
+  // A physical count resets the inventory at that moment; everything after it
+  // replays from what you actually weighed rather than from old estimates.
+  if (settings.inventoryFix){
+    events.push({ t:+new Date(settings.inventoryFix.at), order:0, kind:"count",
+                  total:settings.inventoryFix.total, ground:settings.inventoryFix.ground });
+  }
   // same instant: acquire first, then grind, then smoke
   events.sort((a,b) => (a.t - b.t) || (a.order - b.order));
 
   let nugs = 0, ground = 0, fromGround = 0, fromNugs = 0;
   events.forEach(e => {
+    if (e.kind === "count"){
+      ground = e.ground;
+      nugs = Math.max(0, e.total - e.ground);
+      return;
+    }
     if (e.kind === "buy"){ nugs += e.amt; return; }
     if (e.kind === "give"){ nugs = Math.max(0, nugs - e.amt); return; }
     if (e.kind === "bust"){
@@ -2009,6 +2052,9 @@ function renderStash(){
       const gph = +settings.defaultGramsPerHit || 0.02;
       const perHit = ppg > 0 ? ` &nbsp;<span class="tiny">${money(ppg)}/g × ${gph}g ≈ ${money(ppg*gph)}/hit</span>` : "";
       mathEl.innerHTML =
+        (settings.inventoryFix
+          ? `<div class="row-line"><span class="lbl">Counted ${new Date(settings.inventoryFix.at).toLocaleDateString()}</span><span class="val">${gramsFmt(settings.inventoryFix.total)}</span></div>`
+          : "") +
         // Stage 1: nugs (whole weed)
         `<div class="row-line"><span class="lbl">» Acquired (reups)</span><span class="val">${gramsFmt(b.acquired)}</span></div>` +
         (b.given > 0 ? `<div class="row-line"><span class="lbl">− Given away / sold</span><span class="val">${gramsFmt(b.given)}</span></div>` : "") +
@@ -2120,6 +2166,36 @@ function deleteStashEntry(id){
     saveStash(); renderStashList(); renderStash(); calRender();
     toast("Restored");
   }});
+}
+
+/* --- Physical count: your scale beats the app's estimates --- */
+function openCount(){
+  const b = stashBreakdown();
+  document.getElementById("countTotal").value = r4(b.totalOnHand).toFixed(2);
+  document.getElementById("countGround").value = r4(b.groundReady).toFixed(2);
+  document.getElementById("countHint").textContent = settings.inventoryFix
+    ? "Last counted " + new Date(settings.inventoryFix.at).toLocaleString() + "."
+    : "No count saved yet — the numbers above are the app's estimate.";
+  openModal("countModal");
+}
+function saveCount(){
+  const total = +document.getElementById("countTotal").value;
+  const ground = +document.getElementById("countGround").value;
+  if (isNaN(total) || total < 0){ toast("Enter the total grams on hand"); return; }
+  if (isNaN(ground) || ground < 0){ toast("Enter the ground grams (0 is fine)"); return; }
+  if (ground > total){ toast("Ground can't be more than the total"); return; }
+  settings.inventoryFix = { at: new Date().toISOString(), total: r4(total), ground: r4(ground) };
+  saveSettingsObj();
+  closeModal("countModal");
+  renderAll();
+  toast("Count saved — " + gramsFmt(ground) + " ground");
+}
+function clearCount(){
+  settings.inventoryFix = null;
+  saveSettingsObj();
+  closeModal("countModal");
+  renderAll();
+  toast("Count removed");
 }
 
 /* --- Give away / sell — quick entry for reducing stash --- */
@@ -3810,6 +3886,12 @@ function sanitizeImportedSettings(s){
   s.lowStashThreshold = Math.max(0, Math.min(1000, +s.lowStashThreshold || 7));
   s.bustupGrams = clampBustupGrams(s.bustupGrams);
   s.monthlyBudget = Math.max(0, Math.min(100000, +s.monthlyBudget || 0));
+  s.inventoryFix = (s.inventoryFix && typeof s.inventoryFix === "object"
+      && !isNaN(+s.inventoryFix.total) && !isNaN(+s.inventoryFix.ground))
+    ? { at: isNaN(+new Date(s.inventoryFix.at)) ? new Date().toISOString() : s.inventoryFix.at,
+        total: Math.max(0, +s.inventoryFix.total),
+        ground: Math.max(0, Math.min(+s.inventoryFix.ground, +s.inventoryFix.total)) }
+    : null;
   s.lastStrain = (typeof s.lastStrain === "string" && s.lastStrain.trim()) ? s.lastStrain.trim().slice(0, 60) : null;
   s.tbreakStart = (typeof s.tbreakStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.tbreakStart)) ? s.tbreakStart : null;
   s.tbreakGoalDays = Math.max(1, Math.min(365, +s.tbreakGoalDays || 7));
@@ -4248,6 +4330,7 @@ function runSelfTests(){
   const ok = (name, cond, got) => out.push({test:name, pass:!!cond, got});
   try{
     settings.currency = "CAD";
+    settings.inventoryFix = null;   // a saved count would override every fixture below
     eq("gramsFmt(2)", gramsFmt(2), "2g");
     eq("gramsFmt(0.02)", gramsFmt(0.02), "0.02g");
     eq("gramsFmt(null)", gramsFmt(null), "\u2014");
@@ -4299,6 +4382,13 @@ function runSelfTests(){
     eq("pre-bust smoking does not shrink the batch", r4(b.groundReady), 1);
     eq("nugs = 28 - 1.79 - 2", r4(b.nugsOnHand), 24.21);
     eq("total still nets out", r4(b.totalOnHand), 25.21);
+
+    // A physical count overrides the estimate from that moment on.
+    settings.inventoryFix = { at:iso(0), total:0.33, ground:0.33 };
+    b = stashBreakdown();
+    eq("count sets ground to what's in the jar", r4(b.groundReady), 0.33);
+    eq("count sets the total", r4(b.totalOnHand), 0.33);
+    settings.inventoryFix = null;
 
     log = [];
     for (let i = 2; i >= 0; i--){
