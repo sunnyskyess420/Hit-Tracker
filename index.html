@@ -2740,6 +2740,7 @@ function exportCSV(){
     rows.push(cells.join(","));
   });
   download("hit-tracker.csv", rows.join("\n"), "text/csv");
+  renderAll();
 }
 function exportJSON(){
   settings.lastBackup = new Date().toISOString();
@@ -2750,6 +2751,7 @@ function exportJSON(){
     log, checkins, stash, bustups, settings
   };
   download("hit-tracker-backup.json", JSON.stringify(payload,null,2), "application/json");
+  renderAll();
 }
 function importJSON(event){
   const file=event.target.files[0]; if(!file) return;
