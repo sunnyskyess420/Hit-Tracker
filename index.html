@@ -510,7 +510,7 @@
 
     <!-- Backup reminder -->
     <div id="backupReminder" style="display:none;margin-bottom:8px;padding:8px;background:var(--surface2);border-left:4px solid var(--amber);border-radius:6px;font-size:13px;color:var(--text)">
-      ⏰ <b>Backup reminder:</b> You haven't backed up your data in over 14 days. Tap <span style="cursor:pointer;color:var(--green-bright);font-weight:bold" onclick="exportJSON()">Backup JSON</span> to save a copy.
+      ⏰ <b>Backup reminder:</b> You haven't backed up your data in over 30 days. Tap <span style="cursor:pointer;color:var(--green-bright);font-weight:bold" onclick="exportJSON()">Backup JSON</span> to save a copy.
     </div>
 
     <div class="row">
@@ -2863,7 +2863,7 @@ function renderAll(){
   if (br){
     const last = settings.lastBackup;
     const days = last ? (Date.now() - new Date(last).getTime()) / (1000*60*60*24) : Infinity;
-    br.style.display = (days > 14) ? "" : "none";
+    br.style.display = (days > 30) ? "" : "none";
   }
 
   calRender();
