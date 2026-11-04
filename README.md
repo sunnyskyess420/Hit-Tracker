@@ -116,7 +116,7 @@ Built for someone who smokes flower (pipe, mostly) and buys by the ounce, with a
 
 | File | Purpose |
 |------|---------|
-| `index.html` | The whole app (~255 KB, no build step) |
+| `index.html` | The whole app (~270 KB, no build step) |
 | `hit-tracker.html` | Redirect to `index.html` (kept so old links keep working) |
 | `chart.umd.min.js` | Chart.js 4.4.6, bundled locally — no CDN, works offline |
 | `sw.js` | Service worker (offline cache, `sunnys-hit-tracker-v4`) |

@@ -2480,6 +2480,9 @@ function renderWeighNudge(){
   const today = dayKey(new Date());
   if (settings.lastWeighPrompt === today || !stash.length){ el.style.display = "none"; return; }
   const fix = settings.inventoryFix;
+  // Don't nag a new user the moment they add their first purchase: with no
+  // count yet, wait until there is something for the estimate to drift from.
+  if (!fix && log.length < 15 && !bustups.length){ el.style.display = "none"; return; }
   const age = fix ? (Date.now() - new Date(fix.at).getTime()) / 86400000 : Infinity;
   const staleDays = 14;
   if (age <= staleDays){ el.style.display = "none"; return; }
