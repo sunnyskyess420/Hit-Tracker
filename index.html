@@ -353,6 +353,118 @@
   .to-top:hover{filter:brightness(1.08)}
   .to-top:active{transform:translateY(0) scale(.96)}
   @media(max-width:480px){.to-top{right:12px;bottom:14px;padding:9px 12px;font-size:12px}}
+
+  /* ================= APPEARANCE ================= */
+  /* Default: Neon dispensary. Switching data-theme on <html> swaps the palette. */
+  :root{
+    --bg:#080b0e; --surface:#10161d; --surface2:#18212b;
+    --border:#22303f; --border2:#33465c;
+    --text:#e9fff2; --muted:#93a8b6; --muted2:#6b8090;
+    --green:#1f7a3f; --green-bright:#4ade80; --amber:#fbbf24; --red:#b3341f; --blue:#a78bfa;
+    --btn-a:#1f7a3f; --btn-b:#14532d;
+    --glow-a:rgba(74,222,128,.22); --glow-b:rgba(167,139,250,.20);
+    --hair:rgba(255,255,255,.07);
+    --shadow:0 14px 34px -14px rgba(0,0,0,.85);
+    --radius:18px; --radius-sm:13px;
+  }
+  html[data-theme="earthy"]{
+    --bg:#130f0a; --surface:#1d1710; --surface2:#271f16;
+    --border:#3b2e20; --border2:#523f2b;
+    --text:#f6ecdd; --muted:#b9a488; --muted2:#8d7a60;
+    --green:#5c7a38; --green-bright:#a7c46a; --amber:#d99a4e; --red:#a34a2f; --blue:#8fa9c9;
+    --btn-a:#6d8b40; --btn-b:#44602a;
+    --glow-a:rgba(217,154,78,.17); --glow-b:rgba(167,196,106,.13);
+    --hair:rgba(255,240,220,.09);
+    --shadow:0 14px 30px -16px rgba(0,0,0,.75);
+  }
+  html[data-theme="groovy"]{
+    --bg:#1a1206; --surface:#241a0d; --surface2:#2f2213;
+    --border:#4a3318; --border2:#63431f;
+    --text:#ffeccb; --muted:#c9a877; --muted2:#9b7c4f;
+    --green:#b45309; --green-bright:#f5a524; --amber:#fbbf24; --red:#9a3412; --blue:#c084fc;
+    --btn-a:#c2610c; --btn-b:#8a3f06;
+    --glow-a:rgba(245,158,11,.20); --glow-b:rgba(192,132,252,.14);
+    --hair:rgba(255,230,190,.10);
+    --shadow:0 14px 30px -14px rgba(0,0,0,.8);
+  }
+
+  /* ambient light behind the leaf texture */
+  body{
+    background-image:
+      radial-gradient(75% 45% at 10% -5%, var(--glow-a), transparent 70%),
+      radial-gradient(65% 45% at 100% 6%, var(--glow-b), transparent 72%),
+      url("weed-bg.png");
+    background-size: auto, auto, cover;
+    background-position: 0 0, 0 0, center top;
+    background-repeat: no-repeat, no-repeat, no-repeat;
+    background-attachment: scroll, scroll, fixed;
+  }
+  header.topbar{background:rgba(8,11,14,.82); background:color-mix(in srgb, var(--bg) 84%, transparent); border-bottom:1px solid var(--hair)}
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,0) 42%), var(--surface);
+    border:1px solid var(--hair);
+    box-shadow:var(--shadow);
+  }
+  .stat{background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0)), var(--surface2); border:1px solid var(--hair)}
+  .stat b{font-variant-numeric:tabular-nums}
+  #logButton{
+    background:linear-gradient(180deg, var(--btn-a), var(--btn-b));
+    border:1px solid rgba(255,255,255,.10);
+    border-radius:16px; letter-spacing:.2px;
+    box-shadow:0 12px 30px -14px var(--green-bright), inset 0 1px 0 rgba(255,255,255,.18);
+  }
+  #logButton:active{transform:scale(.985)}
+  .bustup-btn{background:#4a3327; border-color:#6b4a3a; border-radius:14px}
+  .reup-btn{background:#3f2a86; border-color:#5a3fb0; border-radius:14px}
+  .ico-btn{background:var(--surface2); border:1px solid var(--hair); border-radius:12px}
+  .ico-20{width:19px;height:19px;display:block}
+  .qbtn,.chip{background:var(--surface2); border-color:var(--border2)}
+  .set-tab[aria-selected="true"]{background:linear-gradient(180deg, var(--btn-a), var(--btn-b)); border-color:var(--green-bright); color:#fff}
+
+  /* palette picker */
+  .theme-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:2px 0 6px}
+  .theme-swatch{display:flex;flex-direction:column;align-items:center;gap:7px;padding:10px 6px;border-radius:12px;
+    background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-size:12px;font-weight:600;
+    font-family:inherit;cursor:pointer}
+  .theme-swatch[aria-pressed="true"]{border-color:var(--green-bright);box-shadow:inset 0 0 0 1px var(--green-bright)}
+  .sw{width:34px;height:34px;border-radius:50%;display:block;border:1px solid rgba(255,255,255,.18)}
+  .sw-neon{background:radial-gradient(circle at 32% 26%, #4ade80, #0b0f14 74%), linear-gradient(160deg,#a78bfa,#0b0f14)}
+  .sw-earthy{background:radial-gradient(circle at 32% 26%, #d99a4e, #1d1710 74%)}
+  .sw-groovy{background:radial-gradient(circle at 32% 26%, #f5a524, #241a0d 72%), linear-gradient(160deg,#c084fc,#1a1206)}
+
+  /* palette-aware surfaces that were hard-coded before */
+  :root{
+    --bust-a:#4a3327; --bust-b:#33231a; --bust-line:#6b4a3a;
+    --reup-a:#3f2a86; --reup-b:#2a1a5e; --reup-line:#5a3fb0;
+  }
+  html[data-theme="earthy"]{
+    --bust-a:#4d3624; --bust-b:#352417; --bust-line:#6a4b32;
+    --reup-a:#4a3a6e; --reup-b:#2f2547; --reup-line:#635287;
+  }
+  html[data-theme="groovy"]{
+    --bust-a:#5a3a1a; --bust-b:#3d2711; --bust-line:#77501f;
+    --reup-a:#5b3585; --reup-b:#3b2159; --reup-line:#7a4fae;
+  }
+  .bustup-btn{background:linear-gradient(180deg,var(--bust-a),var(--bust-b)); border-color:var(--bust-line)}
+  .reup-btn{background:linear-gradient(180deg,var(--reup-a),var(--reup-b)); border-color:var(--reup-line)}
+  .notice.ok{
+    background:var(--surface2);
+    background:color-mix(in srgb, var(--green) 20%, var(--surface));
+    border:1px solid color-mix(in srgb, var(--green-bright) 26%, transparent);
+    color:var(--text);
+  }
+  .notice.warn{
+    background:var(--surface2);
+    background:color-mix(in srgb, var(--amber) 16%, var(--surface));
+    border:1px solid color-mix(in srgb, var(--amber) 34%, transparent);
+    color:var(--text);
+  }
+  .notice.at{
+    background:var(--surface2);
+    background:color-mix(in srgb, var(--red) 24%, var(--surface));
+    border:1px solid color-mix(in srgb, var(--red) 45%, transparent);
+    color:var(--text);
+  }
 </style>
 </head>
 <body>
@@ -364,6 +476,20 @@
       <circle cx="12" cy="12" r="8.6"/>
       <circle cx="12" cy="12" r="3.6" fill="currentColor" stroke="none"/>
       <path d="M16.5 14.6L18.58 15.8M12 17.2V19.6M7.5 14.6L5.42 15.8M7.5 9.4L5.42 8.2M12 6.8V4.4M16.5 9.4L18.58 8.2"/>
+    </symbol>
+    <symbol id="ico-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4.8" y="10.4" width="14.4" height="9.4" rx="2.6"/>
+      <path d="M8.4 10.4V7.9a3.6 3.6 0 0 1 7.2 0v2.5"/>
+    </symbol>
+    <symbol id="ico-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 3l18 18"/>
+      <path d="M10.6 6.2A10 10 0 0 1 12 6c5 0 9 4.4 9 6 0 .8-1 2.3-2.7 3.6"/>
+      <path d="M6.6 7.5C4.3 9 3 10.7 3 12c0 1.6 4 6 9 6 1.3 0 2.6-.3 3.7-.8"/>
+      <path d="M9.9 10a3 3 0 0 0 4.2 4.2"/>
+    </symbol>
+    <symbol id="ico-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3.1"/>
+      <path d="M12 3.2v2.1M12 18.7v2.1M4.9 7.9l1.8 1.1M17.3 15l1.8 1.1M4.9 16.1l1.8-1.1M17.3 9l1.8-1.1"/>
     </symbol>
     <symbol id="ico-reup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="6.6" y="8.6" width="10.8" height="11.6" rx="2.4"/>
@@ -398,9 +524,9 @@
 
   <header class="topbar">
     <h1>Sunnys Hit Tracker</h1>
-    <button class="ico-btn" title="Lock" onclick="engageLock()">🔒</button>
-    <button class="ico-btn" aria-label="Panic hide" title="Panic hide" onclick="panic()">😱</button>
-    <button class="ico-btn" title="Settings" onclick="openSettings()">⚙️</button>
+    <button class="ico-btn" title="Lock" aria-label="Lock" onclick="engageLock()"><svg class="ico-20" aria-hidden="true"><use href="#ico-lock"/></svg></button>
+    <button class="ico-btn" aria-label="Panic hide" title="Panic hide" onclick="panic()"><svg class="ico-20" aria-hidden="true"><use href="#ico-hide"/></svg></button>
+    <button class="ico-btn" title="Settings" aria-label="Settings" onclick="openSettings()"><svg class="ico-20" aria-hidden="true"><use href="#ico-gear"/></svg></button>
   </header>
   <p class="sub">Private • local • no account</p>
 
@@ -878,6 +1004,15 @@
         </div>
     <div class="set-pane" id="pane-privacy" role="tabpanel" aria-labelledby="tab-privacy" data-pane="privacy">
       <p class="tiny pane-intro">Lock the screen, encrypt what's stored, and keep backups.</p>
+
+      <details class="set-adv" open>
+        <summary>Appearance <span class="tiny">— pick your vibe</span></summary>
+        <div class="theme-row">
+          <button class="theme-swatch" data-theme-opt="neon" onclick="setTheme('neon')"><span class="sw sw-neon"></span>Neon</button>
+          <button class="theme-swatch" data-theme-opt="earthy" onclick="setTheme('earthy')"><span class="sw sw-earthy"></span>Earthy</button>
+          <button class="theme-swatch" data-theme-opt="groovy" onclick="setTheme('groovy')"><span class="sw sw-groovy"></span>Groovy</button>
+        </div>
+      </details>
 <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Privacy & security</h2>
     <label>App PIN (4–6 digits, optional)</label>
     <div class="row">
@@ -1077,6 +1212,7 @@ function defaultSettings(){
     lowStashThreshold: 7,   // warn when stash drops below this many grams (quarter oz default)
     bustupGrams: 2,         // grams the "Bust up" button logs (editable in Settings -> Bust-up)
     monthlyBudget: 0,       // 0 = off; spend bar under the stats
+    theme: "neon",          // look: neon | earthy | groovy
     inventoryFix: null,     // {at, total, ground} — a physical count that overrides earlier estimates
     lastStrain: null,       // remembered for one-tap logs
     tbreakStart: null,      // "YYYY-MM-DD" while a tolerance break is running
@@ -1183,6 +1319,7 @@ function applyState(state){
   settings.lowStashThreshold = +settings.lowStashThreshold || 7;
   settings.bustupGrams = clampBustupGrams(settings.bustupGrams);
   settings.monthlyBudget = Math.max(0, +settings.monthlyBudget || 0);
+  settings.theme = ["neon","earthy","groovy"].indexOf(settings.theme) >= 0 ? settings.theme : "neon";
   const fix = settings.inventoryFix;
   settings.inventoryFix = (fix && typeof fix === "object"
       && !isNaN(+fix.total) && !isNaN(+fix.ground) && +fix.total >= 0 && +fix.ground >= 0)
@@ -1291,6 +1428,7 @@ function loadAll(){
   settings.lowStashThreshold = +settings.lowStashThreshold || 7;
   settings.bustupGrams = clampBustupGrams(settings.bustupGrams);
   settings.monthlyBudget = Math.max(0, +settings.monthlyBudget || 0);
+  settings.theme = ["neon","earthy","groovy"].indexOf(settings.theme) >= 0 ? settings.theme : "neon";
   const fix = settings.inventoryFix;
   settings.inventoryFix = (fix && typeof fix === "object"
       && !isNaN(+fix.total) && !isNaN(+fix.ground) && +fix.total >= 0 && +fix.ground >= 0)
@@ -1522,6 +1660,23 @@ function fmtDuration(ms){
   return Math.floor(hrs/24)+"d "+Math.floor(hrs%24)+"h";
 }
 function curSym(){ return CURRENCY_SYM[settings.currency] || "$"; }
+// ---- Appearance ----
+function applyTheme(){
+  const t = ["neon","earthy","groovy"].indexOf(settings.theme) >= 0 ? settings.theme : "neon";
+  document.documentElement.setAttribute("data-theme", t);
+}
+function setTheme(t){
+  if (["neon","earthy","groovy"].indexOf(t) < 0) return;
+  settings.theme = t;
+  saveSettingsObj();
+  applyTheme();
+  renderThemeSwatches();
+}
+function renderThemeSwatches(){
+  document.querySelectorAll(".theme-swatch").forEach(b => {
+    b.setAttribute("aria-pressed", b.dataset.themeOpt === settings.theme ? "true" : "false");
+  });
+}
 // Every $ label in the settings sheet follows the chosen currency.
 function refreshCurrencySymbols(){
   document.querySelectorAll(".cur-sym").forEach(el => { el.textContent = curSym(); });
@@ -3135,6 +3290,7 @@ function openSettings(){
   renderDeviceGphList();
   renderQBList();
   renderTagManager();
+  renderThemeSwatches();
   showSettingsPane(settings.settingsTab || "logging", false);
   const bstat = document.getElementById("backupStatus");
   if (bstat){
@@ -4035,6 +4191,7 @@ function sanitizeImportedSettings(s){
         .map(([d, v]) => [d.slice(0, 40), +v]))
     : {};
   s.monthlyBudget = Math.max(0, Math.min(100000, +s.monthlyBudget || 0));
+  s.theme = ["neon","earthy","groovy"].indexOf(s.theme) >= 0 ? s.theme : "neon";
   s.inventoryFix = (s.inventoryFix && typeof s.inventoryFix === "object"
       && !isNaN(+s.inventoryFix.total) && !isNaN(+s.inventoryFix.ground))
     ? { at: isNaN(+new Date(s.inventoryFix.at)) ? new Date().toISOString() : s.inventoryFix.at,
@@ -4622,7 +4779,8 @@ function refreshOpenDay(){
 }
 
 function init(){
-  const encryptedLocked = loadAll();
+  loadAll();
+  applyTheme();
   // currency symbol in details panel
   document.getElementById("curSym").textContent = curSym();
   document.getElementById("defGramsSym").textContent = settings.defaultGramsPerHit||0.02;
