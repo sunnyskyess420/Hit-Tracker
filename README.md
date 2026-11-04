@@ -9,42 +9,49 @@ Built for someone who smokes flower (pipe, mostly) and buys by the ounce, with a
 ## Features
 
 ### Core tracking
-- **One-tap logging** — the big button logs a hit instantly with your last-used device, strain and gram estimate
-- **Quick buttons** — pre-set for your actual methods: Pipe hit (0.02g), Vape pen (0.01g), Dab (0.01g), Joint (0.1g)
+- **One-tap logging** — the big button logs a hit with your last-used device, strain and grams
+- **Quick buttons** — pre-set for real methods (Pipe 0.02g, Vape pen 0.01g, Dab 0.01g, Joint 0.1g). Edit or delete them all; the app remembers an empty list
 - **Optional details** — mood before/after, stress, energy, sleep quality, who you were with, strain, tags, exact grams, cost override
-- **Undo last** — and every delete (hit, stash entry, bust-up) now offers **Undo** in a toast instead of vanishing
-- **Notes are only recorded when you move them** — sliders sit at 3 but stay empty in the data until you actually touch them, so the mood/sleep comparisons aren't padded with defaults
+- **Habits stick, moments don't** — device, size and strain carry to the next hit; notes, moods and tags are cleared after each log so they never bleed into the next session
+- **Remembered grams per device** — type `0.08g` once for Joint and every later Joint hit defaults to it. Not retroactive: past entries keep what they had
+- **Undo everywhere** — every delete (hit, stash entry, bust-up, count) offers Undo in a toast
+- **Sliders only count when touched** — leaving a rating alone stores nothing, so the mood/sleep comparisons aren't padded with fake 3s
 
 ### Gram-based daily limit
 - Set a daily limit in **grams** (default 1g/day) or hits
 - Progress ring fills as you log: green → amber at 80% → red at 100%
 - **Logging is never blocked** — you can always record accurately
-- Neutral notices, no shame messaging
-- **Goal bank** — optionally carry unused allowance forward (capped at 2× the daily limit)
+- **Carry over unused allowance** — grams you don't use are added to tomorrow (capped at 2× the limit). The Today card spells it out: *"1.1g left today — 0.21g of 1.31g used (1g limit + 0.31g carried over)"*
+- Neutral wording throughout: no "goal" language, no shame
 
-### Stash tracker (does the math for you)
+### Stash tracker (two-stage: nugs → ground → smoked)
 - Add each purchase: your oz (28g), your partner's 7g gift, anything — with **strain** and price
 - Add giveaways/sold — reduces supply, recalculates effective price
-- **Reup days marked with » on the calendar**
-- Auto-calculates grams on hand, effective $/g, **$/g for each purchase**, hits remaining, per-hit cost
-- Quick-adjust stepper for grams-per-hit on the main screen
+- **Ground is replayed chronologically**, not subtracted as a lifetime total: a hit draws from ground first, then whole nugs, and only from weed that existed at that moment. Smoking before you grind can't eat into the next batch
+- **Last-batch line** — "2g batch from Nov 3 — 1g left", so "how much of that 2g is left" is always answerable
+- Auto-calculates grams on hand, effective $/g, **$/g per purchase**, hits remaining, per-hit cost
 
-### Bust-up markers (your • on the calendar)
-- One-tap **• Bust up** button marks today at your **configured amount** — 2g by default, change it any time in **Settings → Bust-up** (½g / 1g / 2g / 3g / 7g presets, or type any amount)
-- Any single day can use a different amount from that day's detail modal
-- **Ground-low nudge** — when you have whole nugs but nothing ground, the stash card offers the bust-up with your amount prefilled
-- Tracks average days between bust-ups (your natural rhythm)
-- Separate from the stash/limit — no double-counting
+### Count it — the app can be corrected
+- **Count it** takes a real weighing: total on hand and how much is ground
+- That count becomes the truth from that moment; later hits replay from it, so the card matches the jar even if old estimates drifted
+- **Calibration** — after a count, if the batch's real consumption implies a different grams-per-hit (say 0.025g instead of 0.02g), the app offers to update the estimate
+- **Weigh-in nudge** if your last count is older than two weeks
+
+### Bust-up markers
+- One-tap **Bust up** at your **configured amount** — 2g by default, change it in **Settings → Logging** (½ / 1 / 2 / 3 / 7g presets, or any amount)
+- Any single day can use a different amount from its detail modal
+- Bust-ups are **timestamped**, so one ground after a count is added on top of it rather than being wiped by it
+- **Ground-low nudge** when you have whole nugs but nothing ground
+- Tracks average days between bust-ups
 
 ### Strain tracking
-- Add a strain to each stash entry; pick it per hit (with autocomplete from what you've already logged)
-- Quick logs reuse the last strain you used
-- Insights shows your **top strain by grams**
+- Add a strain to each stash entry; pick it per hit (autocomplete from what you've used)
+- Quick logs reuse the last strain; **Patterns** shows your top strain by grams
+- The CSV export carries a Strain column
 
 ### Money
-- **Monthly budget bar** — set a budget and see spend vs target, green → amber → red
-- Effective $/g from real purchases, plus per-purchase $/g in the stash list
-- Per-hit cost, today/week/month/all-time totals
+- **Monthly budget bar** — spend vs target, green → amber → red
+- Effective $/g from real purchases, per-purchase $/g in the stash list, per-hit cost, and today/week/month/all-time totals
 
 ### T-break mode
 - Start a break with a target length; a banner counts **day N of M** and how many hits were logged since
@@ -52,35 +59,41 @@ Built for someone who smokes flower (pipe, mostly) and buys by the ounce, with a
 - Optional **evening check-in nudge** after an hour you choose
 
 ### Calendar heatmap
-- Monthly GitHub-style heatmap colored by daily usage (grams or hits)
-- Sunday-first layout, **•** for bust-up days, **»** for reup days
-- Tap any day → hits, grams, bust-ups, reups, cost, mood/sleep, entries, plus backfill for smoking or bust-ups
-- Month navigation and monthly totals
+- Monthly GitHub-style heatmap coloured by usage (grams or hits)
+- Sunday-first, with grinder icons for bust-up days and jar icons for reups
+- Tap any day → hits, grams, bust-ups, reups, cost, mood/sleep, entries, plus backfill
 
 ### Charts & patterns
 - Daily usage (14 days), 30-day trend, weekly totals (12 weeks)
 - By hour, weekday, device, size
-- Neutral weekly report: "You used 15% less this week (0.7g) versus last week (0.9g)"
-- Correlations between check-ins and usage, clearly labeled as awareness, not medical claims
+- Neutral weekly report: *"You used 15% less this week (0.7g) versus last week (0.9g)"*
+- Correlations between check-ins and usage, labelled as awareness — not medical claims
+
+### Three looks (Settings → Privacy & data → Appearance)
+- **Neon** — near-black, green and violet glow
+- **Earthy** — moss, kraft and amber
+- **Groovy** — warm amber and burnt orange
+- Every surface follows the palette (notices, tabs, action buttons), and your choice is remembered
 
 ### Privacy & security
 - **Optional 4–6 digit PIN**, with escalating lockout after wrong attempts
-- **Blur content until unlocked** and a panic-hide button
-- **Optional encryption at rest** (Settings → Encryption): the payload is encrypted with **AES-256-GCM**, using a key derived from your PIN with **PBKDF2-SHA256 (210,000 rounds)**. The PIN itself is never stored, and a wrong PIN simply fails the GCM tag. If you forget it, the data is unrecoverable — that's the trade-off
-- Without encryption, data sits in storage as plain JSON and the PIN is only a screen lock — the app says so rather than pretending otherwise
+- **Blur until unlocked** and a panic button (screen-off icon) that blacks out instantly
+- **Forgot PIN erases** — there is no recovery path, so the lock can't be bypassed by tapping a link. It's confirmed by typing `ERASE`
+- **Optional encryption at rest** — payload encrypted with **AES-256-GCM**, key derived from your PIN with **PBKDF2-SHA256 (210,000 rounds)**. No PIN hash is stored; a wrong PIN fails the GCM tag. Forget it and the data is unrecoverable
+- Without encryption, data is plain JSON and the PIN is only a screen lock — the app says so instead of pretending otherwise
 
 ### Backups that don't lie
-- **Back up now** writes a real file and only stamps "last backup" after the write succeeds
+- **Back up now** writes a real file and stamps "last backup" only after the write succeeds
 - On Chrome/Edge it reuses the file you picked once (File System Access API); elsewhere it downloads
-- A **Backup due** banner appears after 7 days — no more silent weekly downloads that browsers quietly blocked
-- Encrypted installs back up the **encrypted vault**, so the file is safe to keep anywhere
+- A **Backup due** banner sits at the top of the screen after 7 days, and Settings shows the last backup date
+- Encrypted installs back up the **encrypted vault**, safe to keep anywhere
 - JSON import validates every row (dates, grams, costs, ratings) and merges by ID
 
 ### Data portability
-- **CSV export** with all fields including strain and grams
+- **CSV export** with every field including strain
 - **JSON backup / restore** (merges, no duplicates)
 - **Search & filter** by note, strain, tag, device or size
-- **Print report** — a clean light-mode PDF with inline SVG charts
+- **Print report** — clean light-mode PDF with inline SVG charts
 
 ### PWA
 - Installable, offline-first, with long-press **shortcuts**: Log a hit · Bust up · Check-in
@@ -90,10 +103,10 @@ Built for someone who smokes flower (pipe, mostly) and buys by the ounce, with a
 ## Quick start
 
 1. Open `index.html` in any modern browser
-2. **⚙️ Settings** → set your daily limit and currency
-3. **Manage stash** → add your oz (source, grams, price, strain)
-4. Tap **• Bust up** when you grind a batch, **Log a hit** when you smoke
-5. Adjust grams-per-hit with the +/− stepper so the ring matches reality
+2. **Settings → Logging** — set your daily limit, currency and grams per hit
+3. **Manage stash** — add your oz (grams, price, strain)
+4. Tap **Bust up** when you grind a batch, **Log a hit** when you smoke
+5. Once you have a real number on the scale, tap **Count it** — that's what keeps the maths honest
 
 **On mobile:** open it, then *Add to Home Screen* — it runs like a native app, fully offline.
 
@@ -103,48 +116,51 @@ Built for someone who smokes flower (pipe, mostly) and buys by the ounce, with a
 
 | File | Purpose |
 |------|---------|
-| `index.html` | The whole app (~220 KB, no build step) |
-| `hit-tracker.html` | Redirect to `index.html` (kept so old links still work) |
+| `index.html` | The whole app (~255 KB, no build step) |
+| `hit-tracker.html` | Redirect to `index.html` (kept so old links keep working) |
 | `chart.umd.min.js` | Chart.js 4.4.6, bundled locally — no CDN, works offline |
-| `sw.js` | Service worker (offline cache) |
-| `manifest.json` | PWA manifest + launch shortcuts |
-| `weed-bg.png`, `lighting-weed.mp3`, `icon-*.png` | Assets |
+| `sw.js` | Service worker (offline cache, `sunnys-hit-tracker-v4`) |
+| `manifest.json` | PWA manifest, icons and launch shortcuts |
+| `icon-192/256/512.png`, `icon-512-maskable.png` | App icons (maskable has its own padding) |
+| `weed-bg.png`, `lighting-weed.mp3` | Background texture, hit sound |
+| `tools/check.js` | Static checks: script syntax, duplicate ids, missing elements/assets |
+| `.github/workflows/check.yml` | Runs those checks on every push |
 | `backup/` | Local pre-upgrade snapshot — git-ignored, not part of the release |
 
 ---
 
 ## How the data is stored
 
-All data lives in your browser's storage:
-
 | Key | Contents |
 |-----|----------|
 | `hitTrackerLogV2` | Hit entries |
-| `hitTrackerSettingsV2` | Settings (limit, currency, costs, PIN, quick buttons, tags, budget, T-break…) |
+| `hitTrackerSettingsV2` | Settings (limit, currency, costs, PIN, quick buttons, tags, budget, T-break, theme, counts…) |
 | `hitTrackerCheckinsV2` | End-of-day check-ins |
 | `hitTrackerStashV2` | Stash entries (purchases + giveaways) |
 | `hitTrackerBustupsV2` | Bust-up markers |
 | `hitTrackerVaultV1` | **Only when encryption is on** — the encrypted payload (replaces the five keys above) |
 | `hitTrackerLockV1` | PIN attempt counter / lockout time (no data, no hash) |
 
-Everything is mirrored to IndexedDB as a second copy, and recovered automatically if localStorage is wiped. **Each browser has separate storage** — use Backup/Restore to move between browsers or devices.
+Everything is mirrored to IndexedDB and recovered automatically if localStorage is wiped. **Each browser has separate storage**, and so does each address — `file://` and a hosted URL keep different data. Use Backup/Restore to move between them.
 
 ---
 
-## Self-tests
+## Checks
 
-Open `index.html?selftest=1` — the title bar reports `SELFTEST PASS n/n` and the console prints a table. It covers gram math, date keys, streak counting, stash breakdown, bust-up clamping, PIN lockout escalation, escaping, and the crypto round-trip (including that a wrong key cannot decrypt). State is restored afterwards; nothing is saved.
+- **In the app:** open `index.html?selftest=1` — the title reports `SELFTEST PASS n/n` and the console prints a table. **46 tests** cover gram maths, date keys, streaks, the ground ledger, goal-bank carry-over, bust-up clamping, remembered per-device grams, saved counts, input escaping, PIN lockout and the crypto round-trip. State is restored afterwards; nothing is saved.
+- **On every push:** `node tools/check.js` parses both inline scripts, flags duplicate ids, verifies every `getElementById` target exists and that local assets are present. It runs in GitHub Actions, so a typo can't reach the live site unnoticed.
 
 ---
 
 ## Tech
 
-- **Single HTML file + one JS library** — no build step, no framework, no bundler
+- **Single HTML file + one JS library** — no framework, no bundler, no build step
 - **Vanilla JavaScript**, numbered sections (`===== N`) for navigation
-- **Chart.js 4.4.6** bundled locally (no external requests at all)
+- **Chart.js 4.4.6** bundled locally; the app makes no external requests at all
 - **Web Crypto** — SHA-256 for the PIN gate, PBKDF2 + AES-GCM for optional encryption
 - **localStorage + IndexedDB mirror**, File System Access for backups where available
-- Responsive, mobile-first, dark theme, haptic feedback where supported
+- **CSS custom properties** for the three themes; SVG sprite for every icon (no emoji in the interface)
+- Responsive, mobile-first, haptic feedback where supported
 
 ---
 
@@ -155,26 +171,24 @@ Sections in `index.html`:
 1. Constants & defaults
 2. State
 3. Persistence, migration, **encryption**
-4. Utilities
+4. Utilities (including **theme switching**)
 5. Logging a hit
-6. Limit & reminders
-7. Cost calculations (+ stash math)
-7b. Bust-ups
-7c. Budget / T-break / nudges
+6. Limit, carry-over & reminders
+7. Cost calculations, stash maths, **ground replay**, **counts & calibration**
 8. Mood/context & check-ins
 9. Calendar heatmap
 10. Charts
 11. Weekly report
 12. Patterns/correlations
 13. Entries (search/filter)
-14. Settings UI
+14. Settings UI (**tabs**, appearance, quick buttons)
 15. PIN lock & panic
 16. Export/import
 17b. Backup writer + reminder
 18. Render all + init
 19. Self-tests
 
-Common tweaks: `DEFAULT_DEVICES`, `settings.quickButtons`, `calTier()`, `defaultGramsPerHit`, `BUSTUP_MIN_G` / `BUSTUP_MAX_G`.
+Common tweaks: `DEFAULT_DEVICES`, `settings.quickButtons`, `calTier()`, `defaultGramsPerHit`, `BUSTUP_MIN_G` / `BUSTUP_MAX_G`, and the palette blocks under `html[data-theme="…"]`.
 
 ---
 
