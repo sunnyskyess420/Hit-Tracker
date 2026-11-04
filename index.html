@@ -932,7 +932,16 @@
     <p class="tiny">Since you don't know your hit count yet, the app estimates each hit at this weight. Adjust it as you learn your real per-hit amount. You can override per hit in “Add details”.</p>
 
     
-<details class="set-adv">
+    <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Sleep window</h2>
+    <label>Ignore overnight hours in gap averages</label>
+    <select id="setSleepOn"><option value="0">Off</option><option value="1">On</option></select>
+    <div class="chart-row" style="margin-top:6px">
+      <div><label>Asleep from</label><input type="time" id="setSleepStart" value="01:00"></div>
+      <div><label>Awake at</label><input type="time" id="setSleepEnd" value="10:00"></div>
+    </div>
+    <p class="tiny">Time inside this window is skipped by "Since last", "Longest gap" and the average gap between hits, so a normal night doesn't read as a nine-hour break. Your hits are never changed.</p>
+
+    <details class="set-adv">
       <summary>Per-device grams per hit <span class="tiny">— optional</span></summary>
       <p class="tiny">Override the global default for specific devices. Leave a field blank to use the global default above.</p>
       <div id="deviceGphList"></div>
@@ -1238,6 +1247,9 @@ function defaultSettings(){
     settingsTab: "logging", // last Settings tab opened
     lastCheckinPrompt: null,// day key already nudged for
     lastWeighPrompt: null,  // day key we last asked for a weigh-in
+    sleepEnabled: false,    // exclude a nightly window from gap averages
+    sleepStart: "01:00",    // "HH:MM" local
+    sleepEnd: "10:00",
     lastBackup: null,       // ISO timestamp of last backup (for backup reminder)
     lastAutoBackup: null,   // ISO timestamp of last automatic weekly file backup
     // --- v7 additions ---
@@ -1459,6 +1471,9 @@ function loadAll(){
   settings.checkinReminderHour = Math.min(23, Math.max(0, +settings.checkinReminderHour || 0));
   settings.lastCheckinPrompt = settings.lastCheckinPrompt || null;
   settings.lastWeighPrompt = settings.lastWeighPrompt || null;
+  settings.sleepEnabled = !!settings.sleepEnabled;
+  settings.sleepStart = /^\d{1,2}:\d{2}$/.test(settings.sleepStart) ? settings.sleepStart : "01:00";
+  settings.sleepEnd = /^\d{1,2}:\d{2}$/.test(settings.sleepEnd) ? settings.sleepEnd : "10:00";
   settings.settingsTab = ["logging","stash","habits","privacy"].indexOf(settings.settingsTab) >= 0 ? settings.settingsTab : "logging";
   settings.lastBackup = settings.lastBackup || null;
   settings.lastAutoBackup = settings.lastAutoBackup || null;
@@ -1668,6 +1683,36 @@ function maybeAutoBackup(){
    =================================================================== */
 function dayKey(d){ const x=new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`; }
 function addDaysAgo(n){ const d=new Date(); d.setDate(d.getDate()-n); return dayKey(d); }
+// Sleep window as minutes-into-day; null when off or invalid.
+function sleepCfg(){
+  if (!settings.sleepEnabled) return null;
+  const p = (v) => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(v || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+  const s = p(settings.sleepStart), e = p(settings.sleepEnd);
+  if (s == null || e == null || s === e) return null;
+  return { s, e };
+}
+// Milliseconds of [a,b] that fall inside the nightly sleep window.
+function sleepOverlapMs(a, b){
+  const cfg = sleepCfg();
+  if (!cfg || b <= a) return 0;
+  let total = 0;
+  const start = new Date(a);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - 1);          // a window may have begun last evening
+  for (let d = new Date(start); d.getTime() < b + 86400000; d.setDate(d.getDate() + 1)){
+    const from = new Date(d); from.setMinutes(cfg.s);
+    const to   = new Date(d); to.setMinutes(cfg.e);
+    if (cfg.e <= cfg.s) to.setDate(to.getDate() + 1);  // crossing midnight
+    const lo = Math.max(a, from.getTime()), hi = Math.min(b, to.getTime());
+    if (hi > lo) total += hi - lo;
+  }
+  return total;
+}
+// Time awake between two moments.
+function activeMs(a, b){
+  if (!(b > a)) return 0;
+  return Math.max(0, (b - a) - sleepOverlapMs(a, b));
+}
 function fmtDuration(ms){
   if (ms==null || isNaN(ms)) return "—";
   const mins=Math.floor(ms/60000);
@@ -3055,7 +3100,7 @@ function renderWeeklyReport(){
   // average gap this week
   const times=thisWeek.map(x=>new Date(x.time).getTime()).sort((a,b)=>a-b);
   let avgGap=null;
-  if (times.length>1){ let s=0; for(let i=1;i<times.length;i++) s+=times[i]-times[i-1]; avgGap=s/(times.length-1); }
+  if (times.length>1){ let s=0; for(let i=1;i<times.length;i++) s+=activeMs(times[i-1], times[i]); avgGap=s/(times.length-1); }
   const gapTxt = avgGap!=null ? `<div class="tiny">Average gap between hits this week: ${fmtDuration(avgGap)}. • ${twHits} hits this week.</div>` : "";
   document.getElementById("weeklyReport").innerHTML = `<p style="font-size:14px;margin:0 0 4px">${esc(changeTxt)}</p>${costTxt}${gapTxt}<p class="tiny" style="margin-top:8px">Factual summary only — no judgment.</p>`;
 }
@@ -3075,7 +3120,7 @@ function renderInsights(){
   // average gap all-time
   const sorted=[...log].sort((a,b)=>new Date(a.time)-new Date(b.time));
   let avgGap=null;
-  if (sorted.length>1){ let s=0; for(let i=1;i<sorted.length;i++) s+=new Date(sorted[i].time)-new Date(sorted[i-1].time); avgGap=s/(sorted.length-1); }
+  if (sorted.length>1){ let s=0; for(let i=1;i<sorted.length;i++) s+=activeMs(+new Date(sorted[i-1].time), +new Date(sorted[i].time)); avgGap=s/(sorted.length-1); }
   const cell=(l,v)=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`;
   // Slimmed: only unique insights not shown elsewhere (no all-time grams/entries/cost — those live in stash/stats)
   document.getElementById("insights").innerHTML =
@@ -3297,6 +3342,9 @@ function openSettings(){
   document.getElementById("setWarn").value = settings.warnAt80?1:0;
   document.getElementById("setDefaultGrams").value = settings.defaultGramsPerHit||0.02;
   document.getElementById("setLowStash").value = settings.lowStashThreshold||7;
+  document.getElementById("setSleepOn").value = settings.sleepEnabled?1:0;
+  document.getElementById("setSleepStart").value = settings.sleepStart||"01:00";
+  document.getElementById("setSleepEnd").value = settings.sleepEnd||"10:00";
   document.getElementById("setBustupGrams").value = bustupAmount();
   syncBustupPresetChips();
   document.getElementById("setCurrency").value = settings.currency;
@@ -3349,6 +3397,9 @@ function saveSettings(){
   settings.blurUntilUnlocked = document.getElementById("setBlur").value==="1";
   settings.autoLockOnLoad = document.getElementById("setAutolock").value==="1";
   settings.lowStashThreshold = +document.getElementById("setLowStash").value||7;
+  settings.sleepEnabled = document.getElementById("setSleepOn").value==="1";
+  settings.sleepStart = document.getElementById("setSleepStart").value || "01:00";
+  settings.sleepEnd = document.getElementById("setSleepEnd").value || "10:00";
   settings.bustupGrams = clampBustupGrams(document.getElementById("setBustupGrams").value);
   settings.goalBankEnabled = document.getElementById("setGoalBank").value==="1";
   saveSettingsObj();
@@ -4240,6 +4291,9 @@ function sanitizeImportedSettings(s){
   s.checkinReminderHour = Math.min(23, Math.max(0, +s.checkinReminderHour || 0));
   s.lastCheckinPrompt = null;
   s.lastWeighPrompt = null;
+  s.sleepEnabled = !!s.sleepEnabled;
+  s.sleepStart = /^\d{1,2}:\d{2}$/.test(s.sleepStart) ? s.sleepStart : "01:00";
+  s.sleepEnd = /^\d{1,2}:\d{2}$/.test(s.sleepEnd) ? s.sleepEnd : "10:00";
   s.warnAt80 = !!s.warnAt80;
   s.quickLog = !!s.quickLog;
   s.goalBankEnabled = !!s.goalBankEnabled;
@@ -4555,9 +4609,9 @@ function renderAll(){
 
   const sorted=[...log].sort((a,b)=>new Date(a.time)-new Date(b.time));
   const last=sorted[sorted.length-1];
-  setText("currentGap", last?fmtDuration(Date.now()-new Date(last.time)):"—");
+  setText("currentGap", last?fmtDuration(activeMs(+new Date(last.time), Date.now())):"—");
   let longest=null;
-  for(let i=1;i<sorted.length;i++){ const g=new Date(sorted[i].time)-new Date(sorted[i-1].time); if(!longest||g>longest) longest=g; }
+  for(let i=1;i<sorted.length;i++){ const g=activeMs(+new Date(sorted[i-1].time), +new Date(sorted[i].time)); if(!longest||g>longest) longest=g; }
   setText("longestGap", fmtDuration(longest));
   renderStreaks();
 
@@ -4587,7 +4641,7 @@ function tickGap(){
   // update "time since last" every minute without redrawing charts
   const sorted=[...log].sort((a,b)=>new Date(a.time)-new Date(b.time));
   const last=sorted[sorted.length-1];
-  setText("currentGap", last?fmtDuration(Date.now()-new Date(last.time)):"—");
+  setText("currentGap", last?fmtDuration(activeMs(+new Date(last.time), Date.now())):"—");
   renderLimit(); // keep ring count fresh
 }
 
@@ -4778,6 +4832,15 @@ function runSelfTests(){
     logHit({instant:true});
     eq("next quick hit uses the remembered grams", log[log.length-1].amount, 0.08);
     eq("other devices unaffected", settings.deviceLastAmount.Pipe, undefined);
+
+    // Sleep window: 01:00-10:00 must not count toward a gap.
+    settings.sleepEnabled = true; settings.sleepStart = "01:00"; settings.sleepEnd = "10:00";
+    const base = new Date(); base.setHours(0, 30, 0, 0);
+    const after = new Date(base.getTime() + 10 * 3600 * 1000);   // 00:30 -> 10:30 = 10h
+    eq("sleep hours excluded from a gap", Math.round(activeMs(base.getTime(), after.getTime()) / 3600000), 1);
+    settings.sleepEnabled = false;
+    eq("no window means the full gap", Math.round(activeMs(base.getTime(), after.getTime()) / 3600000), 10);
+    settings.sleepEnabled = true;
 
     eq("avg days between bust-ups", Math.round(avgDaysBetweenBustups()), 2);
     eq("bustupsForDate filters by day", bustupsForDate(addDaysAgo(2)).length, 1);
