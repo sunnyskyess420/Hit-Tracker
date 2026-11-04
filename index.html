@@ -447,7 +447,7 @@
       <div class="chips" id="sizeChips"></div>
 
       <label>Device / method</label>
-      <select id="device"></select>
+      <select id="device" onchange="onDeviceChange()"></select>
 
       <label>Strain (optional)</label>
       <input type="text" id="hitStrain" list="strainOptions" placeholder="which jar?" autocomplete="off">
@@ -1089,6 +1089,7 @@ function defaultSettings(){
     lastAutoBackup: null,   // ISO timestamp of last automatic weekly file backup
     // --- v7 additions ---
     deviceGramsPerHit: {},  // #9: device -> grams; overrides defaultGramsPerHit when set
+    deviceLastAmount: {},   // device -> grams you typed last time (remembered, not retroactive)
     tagColors: {},          // #13: tag name -> #rrggbb
     goalBankEnabled: false  // #15: carry unused daily-goal allowance forward
   };
@@ -1190,6 +1191,7 @@ function applyState(state){
         ground: Math.min(+fix.ground, +fix.total) }
     : null;
   settings.deviceGramsPerHit = (settings.deviceGramsPerHit && typeof settings.deviceGramsPerHit === "object") ? settings.deviceGramsPerHit : {};
+  settings.deviceLastAmount = (settings.deviceLastAmount && typeof settings.deviceLastAmount === "object") ? settings.deviceLastAmount : {};
   settings.tagColors = (settings.tagColors && typeof settings.tagColors === "object") ? settings.tagColors : {};
 }
 function queueVaultSave(){
@@ -1310,6 +1312,7 @@ function loadAll(){
   settings.pinLockUntil = +settings.pinLockUntil || 0;
   // --- v7: ensure new fields exist, assign colors to any legacy tags ---
   settings.deviceGramsPerHit = (settings.deviceGramsPerHit && typeof settings.deviceGramsPerHit === "object") ? settings.deviceGramsPerHit : {};
+  settings.deviceLastAmount = (settings.deviceLastAmount && typeof settings.deviceLastAmount === "object") ? settings.deviceLastAmount : {};
   settings.tagColors = (settings.tagColors && typeof settings.tagColors === "object") ? settings.tagColors : {};
   settings.goalBankEnabled = !!settings.goalBankEnabled;
   (settings.tags || []).forEach((t,i) => { if (!settings.tagColors[t]) settings.tagColors[t] = TAG_PALETTE[i % TAG_PALETTE.length]; });
@@ -1598,6 +1601,11 @@ function logHit(opts){
     cost = co === "" ? null : Number(co);
     const am = document.getElementById("amountInput").value;
     amount = am === "" ? null : Number(am);
+    // Typing grams here teaches the app what this device usually weighs.
+    if (amount != null && amount > 0){
+      if (!settings.deviceLastAmount) settings.deviceLastAmount = {};
+      settings.deviceLastAmount[device] = r4(amount);
+    }
   } else {
     // Quick log: use the quick button's values (or last-used for the main button)
     // Quick buttons pass explicit size/device — those win. Main button falls back to last-used.
@@ -1605,6 +1613,10 @@ function logHit(opts){
     device = opts.device || settings.lastDevice || "Pipe";
     strain = opts.strain || settings.lastStrain || null;
     amount = (opts.amount != null && +opts.amount > 0) ? +opts.amount : null;
+    // No amount on this button? Use what this device weighed last time.
+    if (amount == null && settings.deviceLastAmount && +settings.deviceLastAmount[device] > 0){
+      amount = +settings.deviceLastAmount[device];
+    }
   }
 
   const tags = detailsOpen && !opts.instant ? Array.from(pendingTags) : [];
@@ -1712,9 +1724,22 @@ function deleteEntry(id){
 
 /* --- Details panel --- */
 function toggleDetails(){
-  document.getElementById("details").classList.toggle("hidden");
+  const d = document.getElementById("details");
+  d.classList.toggle("hidden");
+  if (!d.classList.contains("hidden")) prefillDeviceAmount();
   renderTagChips();
 }
+// Show the remembered grams for the selected device, so the number is visible
+// rather than silently reused.
+function prefillDeviceAmount(){
+  const inp = document.getElementById("amountInput");
+  if (!inp) return;
+  const dev = document.getElementById("device").value;
+  const amt = settings.deviceLastAmount && settings.deviceLastAmount[dev];
+  inp.value = amt ? amt : "";
+  inp.placeholder = amt ? "" : "auto";
+}
+function onDeviceChange(){ prefillDeviceAmount(); }
 function setSize(size){ selectedSize = size; renderSizeChips(); }
 function renderSizeChips(){
   document.getElementById("sizeChips").innerHTML = SIZES
@@ -4004,6 +4029,11 @@ function sanitizeImportedSettings(s){
   s.pricePerGram = Math.max(0, Math.min(10000, +s.pricePerGram || 0));
   s.lowStashThreshold = Math.max(0, Math.min(1000, +s.lowStashThreshold || 7));
   s.bustupGrams = clampBustupGrams(s.bustupGrams);
+  s.deviceLastAmount = (s.deviceLastAmount && typeof s.deviceLastAmount === "object")
+    ? Object.fromEntries(Object.entries(s.deviceLastAmount)
+        .filter(([d, v]) => typeof d === "string" && +v > 0 && +v < 5)
+        .map(([d, v]) => [d.slice(0, 40), +v]))
+    : {};
   s.monthlyBudget = Math.max(0, Math.min(100000, +s.monthlyBudget || 0));
   s.inventoryFix = (s.inventoryFix && typeof s.inventoryFix === "object"
       && !isNaN(+s.inventoryFix.total) && !isNaN(+s.inventoryFix.ground))
@@ -4543,6 +4573,19 @@ function runSelfTests(){
     eq("goal bank off = 0", computeGoalBank(), 0);
 
     bustups = [{id:"b1", date:addDaysAgo(4), amount:2}, {id:"b2", date:addDaysAgo(2), amount:2}];
+    // Remembered grams: typing 0.08 for Joint should be reused next tap.
+    settings.deviceLastAmount = {};
+    settings.lastDevice = "Joint";
+    log = []; stash = [];          // bustups stay: the checks below use them
+    document.getElementById("details").classList.remove("hidden");
+    document.getElementById("device").value = "Joint";
+    document.getElementById("amountInput").value = "0.08";
+    logHit();
+    eq("typed grams remembered for the device", settings.deviceLastAmount.Joint, 0.08);
+    logHit({instant:true});
+    eq("next quick hit uses the remembered grams", log[log.length-1].amount, 0.08);
+    eq("other devices unaffected", settings.deviceLastAmount.Pipe, undefined);
+
     eq("avg days between bust-ups", Math.round(avgDaysBetweenBustups()), 2);
     eq("bustupsForDate filters by day", bustupsForDate(addDaysAgo(2)).length, 1);
   } finally {
