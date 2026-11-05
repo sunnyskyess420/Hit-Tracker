@@ -4916,7 +4916,14 @@ function init(){
   // was wiped, and auto-save a weekly file backup.
   initDurability();
 }
-init();
+// A crash inside init() used to kill everything after it silently (auto-lock,
+// durability, the back-to-top button). Fail loudly instead, and keep going.
+try { init(); }
+catch (e){
+  console.error("init failed:", e);
+  document.title = "INIT ERROR";
+  if (typeof toast === "function") toast("Startup error — some features may be off");
+}
 
 /* ---- PWA launch shortcuts: index.html?action=hit|bustup|checkin ---- */
 (function handleLaunchAction(){
