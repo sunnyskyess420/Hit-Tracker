@@ -4878,7 +4878,7 @@ function refreshOpenDay(){
 }
 
 function init(){
-  loadAll();
+  const encryptedLocked = loadAll();
   applyTheme();
   // currency symbol in details panel
   document.getElementById("curSym").textContent = curSym();
