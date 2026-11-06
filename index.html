@@ -1074,6 +1074,27 @@
   </div>
 </div>
 
+<!-- ===== EDIT HIT MODAL ===== -->
+<div id="editHitModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Edit hit" onclick="if(event.target===this)closeModal('editHitModal')">
+  <div class="sheet">
+    <button class="sheet-close" aria-label="Close" onclick="closeModal('editHitModal')">×</button>
+    <h2>Edit hit</h2>
+    <p class="tiny">Fix what was recorded — the time stays the same.</p>
+    <input type="hidden" id="editHitId">
+    <div class="chart-row">
+      <div><label>Device</label><select id="editHitDevice"></select></div>
+      <div><label>Size</label><select id="editHitSize"></select></div>
+    </div>
+    <div class="chart-row">
+      <div><label>Grams</label><input type="number" id="editHitAmount" step="0.01" min="0" placeholder="auto"></div>
+      <div><label>Strain</label><input type="text" id="editHitStrain" list="strainOptions" placeholder="optional"></div>
+    </div>
+    <label>Note</label>
+    <input type="text" id="editHitNote" placeholder="optional">
+    <button class="secondary" style="background:var(--green);color:#fff;width:100%;margin-top:12px" onclick="saveHitEdit()">Save changes</button>
+  </div>
+</div>
+
 <!-- ===== COUNT MODAL (physical inventory count) ===== -->
 <div id="countModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Count what's on hand" onclick="if(event.target===this)closeModal('countModal')">
   <div class="sheet">
@@ -1713,6 +1734,13 @@ function activeMs(a, b){
   if (!(b > a)) return 0;
   return Math.max(0, (b - a) - sleepOverlapMs(a, b));
 }
+// "1a", "12p" — used wherever an hour is shown so the app never says 13:00.
+function hourLabel(h){
+  const hh = ((h % 24) + 24) % 24;
+  const ap = hh < 12 ? "a" : "p";
+  const n = hh % 12 === 0 ? 12 : hh % 12;
+  return n + ap;
+}
 function fmtDuration(ms){
   if (ms==null || isNaN(ms)) return "—";
   const mins=Math.floor(ms/60000);
@@ -1853,26 +1881,9 @@ function logHit(opts){
   if (strain) settings.lastStrain = strain;
   saveSettingsObj();
 
-  // reset details panel for next time
-  if (detailsOpen && !opts.instant){
-    document.getElementById("note").value = "";
-    document.getElementById("hitStrain").value = "";
-    document.getElementById("costOverride").value = "";
-    document.getElementById("amountInput").value = "";
-    document.getElementById("moodBefore").value = 3; document.getElementById("moodBefore").nextElementSibling.textContent="3";
-    document.getElementById("moodAfter").value = 3;  document.getElementById("moodAfter").nextElementSibling.textContent="3";
-    document.getElementById("stress").value = 3;     document.getElementById("stress").nextElementSibling.textContent="3";
-    document.getElementById("energy").value = 3;     document.getElementById("energy").nextElementSibling.textContent="3";
-    document.getElementById("sleepQuality").value=3; document.getElementById("sleepQuality").nextElementSibling.textContent="3";
-    document.getElementById("social").value = "";
-    ["moodBefore","moodAfter","stress","energy","sleepQuality"].forEach(id=>{
-      const el = document.getElementById(id);
-      if (el) delete el.dataset.touched;
-    });
-    pendingTags.clear(); renderTagChips();
-    // close details so the next tap is quick again
-    document.getElementById("details").classList.add("hidden");
-  }
+  // Details are kept on purpose: whatever you set stays until you change it
+  // (or close the panel with "Add details"), so a pipe run doesn't need
+  // re-entering the device every tap.
 
   saveLog();
   vib(12);
@@ -2450,6 +2461,36 @@ function deleteStashEntry(id){
     saveStash(); renderStashList(); renderStash(); calRender();
     toast("Restored");
   }});
+}
+
+/* --- Edit a recorded hit (device, size, grams, strain, note) --- */
+function openHitEdit(id){
+  const e = log.find(x => String(x.id) === String(id));
+  if (!e) return;
+  document.getElementById("editHitId").value = e.id;
+  document.getElementById("editHitDevice").innerHTML =
+    DEFAULT_DEVICES.map(d => `<option ${d === e.device ? "selected" : ""}>${esc(d)}</option>`).join("");
+  document.getElementById("editHitSize").innerHTML =
+    SIZES.map(s => `<option ${s === e.size ? "selected" : ""}>${s}</option>`).join("");
+  document.getElementById("editHitAmount").value = e.amount != null ? e.amount : "";
+  document.getElementById("editHitStrain").value = e.strain || "";
+  document.getElementById("editHitNote").value = e.note || "";
+  openModal("editHitModal");
+}
+function saveHitEdit(){
+  const id = document.getElementById("editHitId").value;
+  const e = log.find(x => String(x.id) === String(id));
+  if (!e) return;
+  e.device = document.getElementById("editHitDevice").value;
+  e.size   = document.getElementById("editHitSize").value;
+  const am = document.getElementById("editHitAmount").value;
+  e.amount = am === "" ? null : (+am > 0 ? +am : null);
+  e.strain = (document.getElementById("editHitStrain").value || "").trim().slice(0, 60) || null;
+  e.note   = (document.getElementById("editHitNote").value || "").trim();
+  saveLog();
+  closeModal("editHitModal");
+  renderAll(); refreshOpenDay();
+  toast("Hit updated");
 }
 
 /* --- Physical count: your scale beats the app's estimates --- */
@@ -3048,7 +3089,7 @@ function renderCharts(){
   // by hour
   const hourCounts=Array(24).fill(0);
   log.forEach(x=>hourCounts[new Date(x.time).getHours()]++);
-  makeBarChart("hourChart",hourCounts.map((_,i)=>i+":00"),hourCounts,"#26a69a");
+  makeBarChart("hourChart",hourCounts.map((_,i)=>hourLabel(i)),hourCounts,"#26a69a");
   // by weekday (Mon-first)
   const dowCounts=Array(7).fill(0);
   log.forEach(x=>{ dowCounts[new Date(x.time).getDay()]++; }); // Sun=0
@@ -3124,7 +3165,7 @@ function renderInsights(){
   const cell=(l,v)=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`;
   // Slimmed: only unique insights not shown elsewhere (no all-time grams/entries/cost — those live in stash/stats)
   document.getElementById("insights").innerHTML =
-    cell("Busiest hour", log.length?`${busiest}:00`:"—")+
+    cell("Busiest hour", log.length?hourLabel(busiest):"—")+
     cell("Most-used method", topDev?`${topDev[0]} (${topDev[1]})`:"—")+
     cell("Most common size", topSz?`${topSz[0]} (${topSz[1]})`:"—")+
     cell("Avg gap between hits", avgGap!=null?fmtDuration(avgGap):"—")+
@@ -3329,7 +3370,7 @@ function renderEntries(){
       <small>${esc(x.size)} • ${esc(x.device)} • ${gramsFmt(entryAmount(x))}${hitCost(x)?` • ${money(hitCost(x))}`:""}${x.note?` • ${esc(x.note)}`:""}</small>
       ${extras.length?`<small class="muted">${esc(extras.join(" • "))}</small>`:""}
       ${tagline?`<div class="tagline">${tagline}</div>`:""}
-    </div><button class="del-btn" onclick="deleteEntry('${x.id}')" aria-label="Delete hit">✕</button></div>`;
+    </div><button class="del-btn" style="color:var(--muted)" onclick="openHitEdit('${x.id}')" aria-label="Edit hit">✎</button><button class="del-btn" onclick="deleteEntry('${x.id}')" aria-label="Delete hit">✕</button></div>`;
   }).join("");
 }
 
