@@ -539,6 +539,16 @@
   <div class="hint">Tap anywhere to resume</div>
 </div>
 
+<!-- ===== DUPLICATE INSTANCE NOTICE ===== -->
+<div id="dupOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Already open">
+  <div class="lock-box">
+    <h2>Already open</h2>
+    <p>Your tracker is running in another window. Two at once can overwrite each other's saves.</p>
+    <button class="secondary" style="width:100%;margin-top:8px" onclick="document.getElementById('dupOverlay').classList.add('hidden')">Use this window anyway</button>
+    <button class="secondary" style="width:100%;margin-top:8px" onclick="window.close()">Close this tab</button>
+  </div>
+</div>
+
 <div class="wrap" id="appWrap">
 
   <header class="topbar">
@@ -5151,6 +5161,18 @@ catch (e){
   document.title = "INIT ERROR";
   if (typeof toast === "function") toast("Startup error — some features may be off");
 }
+
+/* ---- Single instance: one window at a time. Launch shortcuts and the
+   self-test are exempt, otherwise the open window would block them. ---- */
+(function singleInstance(){
+  if (!navigator.locks) return;
+  if (/[?&](action|selftest)=/.test(location.search)) return;
+  navigator.locks.request("hitTrackerInstance", { ifAvailable: true }, (lock) => {
+    if (lock) return new Promise(() => {});
+    const ov = document.getElementById("dupOverlay");
+    if (ov) ov.classList.remove("hidden");
+  }).catch(() => {});
+})();
 
 /* ---- PWA launch shortcuts: index.html?action=hit|bustup|checkin ---- */
 (function handleLaunchAction(){
