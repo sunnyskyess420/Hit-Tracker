@@ -592,7 +592,7 @@
       <div class="chips" id="sizeChips"></div>
 
       <label>Device / method</label>
-      <select id="device" onchange="onDeviceChange()"></select>
+      <select id="device" onchange="onDeviceChange()"><option>Pipe</option><option>Vape pen</option><option>Dab rig</option><option>Joint</option><option>Bong</option><option>Edible</option><option>Other</option></select>
 
       <label>Strain (optional)</label>
       <input type="text" id="hitStrain" list="strainOptions" placeholder="which jar?" autocomplete="off">
@@ -1245,6 +1245,10 @@ function defaultSettings(){
     quickLog: true,
     lastSize: "Medium",
     lastDevice: "Pipe",
+    // Add-details panel remembers its own last pick, independent of one-tap logs
+    // (one-tap "Vape pen" hits would otherwise overwrite lastDevice and reset the panel).
+    lastDetailsSize: null,
+    lastDetailsDevice: null,
     quickButtons: [
       {label:"Pipe hit",  size:"Medium", device:"Pipe",    amount:0.02},
       {label:"Vape pen",  size:"Small",  device:"Vape pen", amount:0.01},
@@ -1411,6 +1415,7 @@ async function unlockVault(pin){
     const state = await decryptVaultPayload(v, key);
     vaultKey = key; vault = v;
     applyState(state);
+    renderDetailsControls();
     return true;
   }catch(e){
     return false;                 // GCM tag mismatch = wrong PIN
@@ -1581,7 +1586,7 @@ function loadAll(){
     note:   b.note || ""
   }));
 
-  selectedSize = settings.lastSize || "Medium";
+  selectedSize = settings.lastDetailsSize || settings.lastSize || "Medium";
 }
 
 // Additive migration: keeps every old field, fills new optional fields.
@@ -2060,15 +2065,35 @@ function prefillDeviceAmount(){
   inp.value = amt ? amt : "";
   inp.placeholder = amt ? "" : "auto";
 }
-function onDeviceChange(){ prefillDeviceAmount(); }
-function setSize(size){ selectedSize = size; renderSizeChips(); }
+function onDeviceChange(){
+  // Remember the panel's own device across app restarts (separate from one-tap lastDevice).
+  settings.lastDetailsDevice = document.getElementById("device").value;
+  saveSettingsObj();
+  prefillDeviceAmount();
+}
+function setSize(size){
+  selectedSize = size;
+  settings.lastDetailsSize = size; // remember the panel's size across app restarts
+  saveSettingsObj();
+  renderSizeChips();
+}
 function renderSizeChips(){
   document.getElementById("sizeChips").innerHTML = SIZES
     .map(s=>`<button class="chip ${s===selectedSize?"active":""}" onclick="setSize('${s}')">${s}</button>`).join("");
 }
 function renderDeviceSelect(){
+  const dev = settings.lastDetailsDevice || settings.lastDevice;
   document.getElementById("device").innerHTML = DEFAULT_DEVICES
-    .map(d=>`<option ${d===settings.lastDevice?"selected":""}>${d}</option>`).join("");
+    .map(d=>`<option ${d===dev?"selected":""}>${d}</option>`).join("");
+}
+// Restore the Add-details panel's device + size from saved settings. Called at
+// boot and after an encrypted vault is unlocked: loadAll skips the settings
+// block when a vault is present, so without this the panel keeps its boot-time
+// defaults instead of the user's last selection.
+function renderDetailsControls(){
+  selectedSize = settings.lastDetailsSize || settings.lastSize || "Medium";
+  renderSizeChips();
+  renderDeviceSelect();
 }
 
 /* --- Tags in details panel --- */
@@ -5017,8 +5042,7 @@ function init(){
   // currency symbol in details panel
   document.getElementById("curSym").textContent = curSym();
   document.getElementById("defGramsSym").textContent = settings.defaultGramsPerHit||0.02;
-  renderSizeChips();
-  renderDeviceSelect();
+  renderDetailsControls();
   renderTagChips();
   // Sliders only count as "filled in" after you move them.
   document.querySelectorAll('#details input[type="range"]').forEach(el=>{
