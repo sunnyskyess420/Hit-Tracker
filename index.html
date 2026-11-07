@@ -589,7 +589,10 @@
 
     <div id="details" class="hidden">
       <label>Hit size</label>
-      <div class="chips" id="sizeChips"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="chips" id="sizeChips" style="margin-top:0;flex:1 1 auto"><button class="chip" onclick="setSize('Small')">Small</button><button class="chip active" onclick="setSize('Medium')">Medium</button><button class="chip" onclick="setSize('Large')">Large</button></div>
+        <button class="secondary" style="margin:0;flex:0 0 auto;white-space:nowrap" onclick="saveDetails()" title="Save device, strain, note, tags and before/after moods as your defaults">Save</button>
+      </div>
 
       <label>Device / method</label>
       <select id="device" onchange="onDeviceChange()"><option>Pipe</option><option>Vape pen</option><option>Dab rig</option><option>Joint</option><option>Bong</option><option>Edible</option><option>Other</option></select>
@@ -1284,7 +1287,16 @@ function defaultSettings(){
     deviceGramsPerHit: {},  // #9: device -> grams; overrides defaultGramsPerHit when set
     deviceLastAmount: {},   // device -> grams you typed last time (remembered, not retroactive)
     tagColors: {},          // #13: tag name -> #rrggbb
-    goalBankEnabled: false  // #15: carry unused daily-goal allowance forward
+    goalBankEnabled: false, // #15: carry unused daily-goal allowance forward
+    // "Add details" defaults you commit with the Save button. They are reloaded
+    // every restart and reused for every hit until you tap Save again. Size,
+    // amount, cost and the other rating sliders are intentionally NOT saved
+    // (they vary per hit). Moods are stored only when you actually moved the
+    // slider, so an untouched default "3" never gets logged as fake data.
+    savedDetails: {
+      device: null, strain: null, note: null,
+      tags: [], moodBefore: null, moodAfter: null
+    }
   };
 }
 
@@ -1416,6 +1428,7 @@ async function unlockVault(pin){
     vaultKey = key; vault = v;
     applyState(state);
     renderDetailsControls();
+    loadSavedDetails();   // refill the panel from the saved defaults after a vault unlock
     return true;
   }catch(e){
     return false;                 // GCM tag mismatch = wrong PIN
@@ -2094,6 +2107,61 @@ function renderDetailsControls(){
   selectedSize = settings.lastDetailsSize || settings.lastSize || "Medium";
   renderSizeChips();
   renderDeviceSelect();
+}
+
+/* --- Saved details: persist device/strain/note/tags/before+after moods across
+   restarts until the user taps "Save details" again. Size, amount, cost and
+   the stress/energy/sleep/social sliders are intentionally NOT saved, since
+   they vary per hit. --- */
+function saveDetails(){
+  const device = document.getElementById("device").value || "Pipe";
+  const strain = (document.getElementById("hitStrain").value || "").trim().slice(0, 60) || null;
+  const note   = document.getElementById("note").value.trim();
+  const tags   = Array.from(pendingTags);
+  // Moods: only persist a slider the user actually moved. An untouched slider
+  // sits at 3 by default; saving that fake "3" would log it on every future hit.
+  const moodBefore = ratingValue("moodBefore");
+  const moodAfter  = ratingValue("moodAfter");
+  settings.savedDetails = { device, strain, note, tags, moodBefore, moodAfter };
+  settings.lastDetailsDevice = device; // keep the live pick in sync with the saved one
+  saveSettingsObj();
+  toast("Details saved — reused for every hit until you save new ones");
+  vib(12);
+}
+// Refill the Add-details panel from the saved defaults. Called at boot and
+// after an encrypted vault is unlocked (loadAll/applyState reset settings, so
+// without this the panel keeps its boot-time blanks instead of your saved set).
+function loadSavedDetails(){
+  const s = settings.savedDetails;
+  if (!s) return;
+  if (s.device){
+    const dev = document.getElementById("device");
+    if (dev){ dev.value = s.device; prefillDeviceAmount(); }
+  }
+  const strainEl = document.getElementById("hitStrain");
+  if (strainEl) strainEl.value = s.strain || "";
+  const noteEl = document.getElementById("note");
+  if (noteEl) noteEl.value = s.note || "";
+  // Rebuild the pending tag set from the saved tags, and make sure each one
+  // still exists as a chip (re-add to settings.tags if a saved tag was removed).
+  pendingTags = new Set();
+  (Array.isArray(s.tags) ? s.tags : []).forEach(t=>{
+    if (!t) return;
+    if (!settings.tags.includes(t)){ settings.tags.push(t); ensureTagColor(t); }
+    pendingTags.add(t);
+  });
+  renderTagChips();
+  // Restore the saved mood and mark the slider touched so ratingValue() records it.
+  restoreMood("moodBefore", s.moodBefore);
+  restoreMood("moodAfter",  s.moodAfter);
+}
+function restoreMood(id, val){
+  if (val == null) return;
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = val;
+  el.dataset.touched = "1";
+  if (el.nextElementSibling) el.nextElementSibling.textContent = String(val);
 }
 
 /* --- Tags in details panel --- */
@@ -5044,6 +5112,7 @@ function init(){
   document.getElementById("defGramsSym").textContent = settings.defaultGramsPerHit||0.02;
   renderDetailsControls();
   renderTagChips();
+  loadSavedDetails();   // refill device/strain/note/tags/moods from the last "Save"
   // Sliders only count as "filled in" after you move them.
   document.querySelectorAll('#details input[type="range"]').forEach(el=>{
     el.addEventListener("input", ()=>{ el.dataset.touched = "1"; });
