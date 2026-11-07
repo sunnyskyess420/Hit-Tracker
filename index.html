@@ -4110,7 +4110,7 @@ function generateReport(){
     <div class="section page-break">
       <h2>Mood & sleep</h2>
       <table class="stats" style="margin-bottom:14px">
-        ${moodFields.map(([f,l])=>`<tr><td class="lbl">Avg ${l}</td><td class="val">${moodAvg(f)} / 10</td></tr>`).join("")}
+        ${moodFields.map(([f,l])=>`<tr><td class="lbl">Avg ${l}</td><td class="val">${moodAvg(f)} / 5</td></tr>`).join("")}
       </table>
       <h3 style="font-size:12px;color:#444;margin:10px 0 6px">Higher-use vs lower-use days</h3>
       ${corrHtml}
