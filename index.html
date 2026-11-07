@@ -142,6 +142,8 @@
     0%   { transform:translate(0,0) rotate(0deg) scale(.9);   opacity:1; }
     100% { transform:translate(var(--dx),var(--dy)) rotate(170deg) scale(.2); opacity:0; }
   }
+  /* Full-page fireworks canvas — pointer-events:none keeps every control usable */
+  #fireworksCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:80}
   /* Leaf ghosted into the log button itself, where nothing can cover it */
   #logButton::after{
     content:"";position:absolute;right:10px;top:50%;width:58px;height:58px;
@@ -1204,6 +1206,7 @@
 
 <!-- Embedded lighter sound — plays on every "Log a hit" tap -->
 <audio id="hitSound" preload="auto" src="lighting-weed.mp3"></audio>
+<canvas id="fireworksCanvas" aria-hidden="true"></canvas>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <datalist id="strainOptions"></datalist>
@@ -1904,6 +1907,95 @@ function playHitSound(){
   } catch(e){ /* ignore */ }
 }
 
+/* Full-page fireworks layer for hit celebrations */
+let fwCanvas = null, fwCtx = null, fwParticles = [], fwRafId = 0, fwLastTime = 0, fwResizeBound = false;
+const FW_COLORS = ["#8ed46a", "#4caf50", "#ffb74d", "#42a5f5", "#ba68c8", "#fff176"];
+
+function initFireworks(){
+  if (fwCanvas){ sizeFireworksCanvas(); return; }
+  fwCanvas = document.getElementById("fireworksCanvas");
+  if (!fwCanvas || !fwCanvas.getContext) return;
+  fwCtx = fwCanvas.getContext("2d");
+  if (!fwCtx) return;
+  sizeFireworksCanvas();
+  if (!fwResizeBound){
+    window.addEventListener("resize", sizeFireworksCanvas);
+    fwResizeBound = true;
+  }
+}
+
+function sizeFireworksCanvas(){
+  if (!fwCanvas || !fwCtx) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = window.innerWidth, h = window.innerHeight;
+  fwCanvas.width = Math.max(1, Math.floor(w * dpr));
+  fwCanvas.height = Math.max(1, Math.floor(h * dpr));
+  fwCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function launchFireworks(burstCount = 8){
+  initFireworks();
+  if (!fwCtx) return;
+  const w = window.innerWidth, h = window.innerHeight;
+  if (w < 10 || h < 10) return;
+
+  for (let b = 0; b < burstCount; b++){
+    const x = w * (0.18 + Math.random() * 0.64);
+    const y = h * (0.16 + Math.random() * 0.38);
+    const color = FW_COLORS[Math.floor(Math.random() * FW_COLORS.length)];
+    const count = 42 + Math.floor(Math.random() * 20);
+    for (let i = 0; i < count; i++){
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.35;
+      const speed = 1.8 + Math.random() * 4.2;
+      const ttl = 0.9 + Math.random() * 0.7;
+      fwParticles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        ttl, life: ttl,
+        size: 1.8 + Math.random() * 2.4,
+        color
+      });
+    }
+  }
+
+  if (fwParticles.length > 900) fwParticles.splice(0, fwParticles.length - 900);
+  if (!fwRafId){
+    fwLastTime = performance.now();
+    fwRafId = requestAnimationFrame(tickFireworks);
+  }
+}
+
+function tickFireworks(now){
+  fwRafId = 0;
+  const dt = Math.min((now - fwLastTime) / 16.667, 3) || 1;
+  fwLastTime = now;
+  fwCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  fwCtx.globalCompositeOperation = "lighter";
+
+  for (let i = fwParticles.length - 1; i >= 0; i--){
+    const p = fwParticles[i];
+    p.life -= dt / 60;
+    if (p.life <= 0){ fwParticles.splice(i, 1); continue; }
+    p.vx *= Math.pow(0.985, dt);
+    p.vy = (p.vy + 0.045 * dt) * Math.pow(0.985, dt);
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+
+    const alpha = Math.max(p.life / p.ttl, 0);
+    fwCtx.globalAlpha = alpha * 0.95;
+    fwCtx.fillStyle = p.color;
+    fwCtx.beginPath();
+    fwCtx.arc(p.x, p.y, Math.max(p.size * alpha, 0.4), 0, Math.PI * 2);
+    fwCtx.fill();
+  }
+
+  fwCtx.globalAlpha = 1;
+  fwCtx.globalCompositeOperation = "source-over";
+  if (fwParticles.length) fwRafId = requestAnimationFrame(tickFireworks);
+  else fwCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+}
+
 /* Pulse + sparkle animation on the Log a hit button */
 function pulseLogButton(){
   const btn = document.getElementById("logButton");
@@ -1912,6 +2004,7 @@ function pulseLogButton(){
   btn.classList.remove("pulse");
   void btn.offsetWidth; // force reflow so animation restarts
   btn.classList.add("pulse");
+  launchFireworks(8);
   // spawn sparkles radiating outward from the button center
   const rect = btn.getBoundingClientRect();
   const cx = rect.width / 2;
