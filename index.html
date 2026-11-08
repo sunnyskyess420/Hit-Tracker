@@ -539,16 +539,6 @@
   <div class="hint">Tap anywhere to resume</div>
 </div>
 
-<!-- ===== DUPLICATE INSTANCE NOTICE ===== -->
-<div id="dupOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Already open">
-  <div class="lock-box">
-    <h2>Already open</h2>
-    <p>Your tracker is running in another window. Two at once can overwrite each other's saves.</p>
-    <button class="secondary" style="width:100%;margin-top:8px" onclick="document.getElementById('dupOverlay').classList.add('hidden')">Use this window anyway</button>
-    <button class="secondary" style="width:100%;margin-top:8px" onclick="window.close()">Close this tab</button>
-  </div>
-</div>
-
 <div class="wrap" id="appWrap">
 
   <header class="topbar">
@@ -5162,30 +5152,51 @@ catch (e){
   if (typeof toast === "function") toast("Startup error — some features may be off");
 }
 
-/* ---- Single instance: one window at a time. Launch shortcuts and the
-   self-test are exempt, otherwise the open window would block them. ---- */
-(function singleInstance(){
-  if (!navigator.locks) return;
-  if (/[?&](action|selftest)=/.test(location.search)) return;
-  navigator.locks.request("hitTrackerInstance", { ifAvailable: true }, (lock) => {
-    if (lock) return new Promise(() => {});
-    const ov = document.getElementById("dupOverlay");
-    if (ov) ov.classList.remove("hidden");
-  }).catch(() => {});
-})();
-
-/* ---- PWA launch shortcuts: index.html?action=hit|bustup|checkin ---- */
+/* ---- PWA launch shortcuts: index.html?action=hit|bustup|checkin ----
+   Two paths can deliver a taskbar jump-list shortcut click:
+   • Cold launch (app not running yet): the OS opens index.html?action=hit,
+     so location.search carries the action — read it once at startup.
+   • Warm launch (app already open): the OS would just focus the window and
+     never change the URL, so the param is invisible. The Launch Handler API
+     (window.launchQueue) hands the shortcut click to the running instance
+     instead. Supported in Chromium/Edge — the same browsers that surface
+     taskbar jump-list shortcuts — so it covers exactly where this is used.
+   runLaunchAction is shared by both. A dedup guard stops a double log when
+   the cold-launch URL param and the launchQueue callback both fire (the
+   callback also runs on first launch, with the URL that started the app). */
+function runLaunchAction(action){
+  if (!action) return;
+  const now = Date.now();
+  if (runLaunchAction._last === action && now - (runLaunchAction._t || 0) < 3000) return;
+  runLaunchAction._last = action; runLaunchAction._t = now;
+  // logHit / bustUp / openCheckin touch DOM built by init(); defer until boot settles.
+  setTimeout(()=>{
+    try {
+      if (action === "hit") logHit({instant:true});
+      else if (action === "bustup") bustUp("");
+      else if (action === "checkin") openCheckin();
+    } catch(e){ console.error("launch action failed:", e); }
+    try { history.replaceState(null, "", location.pathname + location.hash); } catch(e){}
+  }, 350);
+}
 (function handleLaunchAction(){
   let action = null;
   try { action = new URLSearchParams(location.search).get("action"); } catch(e){}
-  if (!action) return;
-  setTimeout(()=>{
-    if (action === "hit") logHit({instant:true});
-    else if (action === "bustup") bustUp("");
-    else if (action === "checkin") openCheckin();
-    try { history.replaceState(null, "", location.pathname + location.hash); } catch(e){}
-  }, 350);
+  if (action) runLaunchAction(action);
 })();
+// Warm launch: app already open, OS focuses the window instead of navigating.
+// launchQueue delivers the shortcut click (with its target URL) to this instance.
+if ('launchQueue' in window && window.launchQueue && typeof window.launchQueue.setConsumer === 'function'){
+  window.launchQueue.setConsumer(function(launchParams){
+    let action = null;
+    try {
+      if (launchParams && launchParams.targetURL){
+        action = new URLSearchParams(new URL(launchParams.targetURL, location.href).search).get("action");
+      }
+    } catch(e){ /* ignore parse errors */ }
+    if (action) runLaunchAction(action);
+  });
+}
 
 /* ---- Self-test gate: index.html?selftest=1 prints a table and sets the title ---- */
 if (/[?&]selftest\b/.test(location.search)){
