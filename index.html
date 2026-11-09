@@ -1174,8 +1174,9 @@
     <h2>Count what's on hand</h2>
     <p class="tiny">Weigh the jar and put the real numbers here. The app replays everything after this moment from your count instead of from estimated hits — so the card starts telling the truth again.</p>
     <div class="chart-row">
-      <div><label>Total on hand (g)</label><input type="number" id="countTotal" step="0.01" min="0"></div>
-      <div><label>Of which ground (g)</label><input type="number" id="countGround" step="0.01" min="0"></div>
+      <div><label>Whole buds (g)</label><input type="number" id="countNugs" step="0.01" min="0" oninput="updateCountTotal()"></div>
+      <div><label>Already busted up / ground (g)</label><input type="number" id="countGround" step="0.01" min="0" oninput="updateCountTotal()"></div>
+      <p class="tiny" id="countTotalLine" style="margin-top:8px"></p>
     </div>
     <p class="tiny" id="countHint" style="margin-top:6px"></p>
     <button class="secondary" style="background:var(--green);color:#fff;width:100%;margin-top:10px" onclick="saveCount()">Save count</button>
@@ -2803,16 +2804,27 @@ function saveHitEdit(){
 /* --- Physical count: your scale beats the app's estimates --- */
 function openCount(){
   const b = stashBreakdown();
-  document.getElementById("countTotal").value = r4(b.totalOnHand).toFixed(2);
+  document.getElementById("countNugs").value = r4(b.nugsOnHand).toFixed(2);
   document.getElementById("countGround").value = r4(b.groundReady).toFixed(2);
+  updateCountTotal();
   document.getElementById("countHint").textContent = settings.inventoryFix
     ? "Last counted " + new Date(settings.inventoryFix.at).toLocaleString() + "."
     : "No count saved yet — the numbers above are the app's estimate.";
   openModal("countModal");
 }
+// The two numbers you can actually read off the scale. Total is just their sum,
+// so there is no way to enter a total and have ground subtracted from it.
+function updateCountTotal(){
+  const el = document.getElementById("countTotalLine");
+  if (!el) return;
+  const nugs = +document.getElementById("countNugs").value || 0;
+  const ground = +document.getElementById("countGround").value || 0;
+  el.textContent = `That is ${gramsFmt(nugs)} of buds plus ${gramsFmt(ground)} ground \u2192 ${gramsFmt(nugs + ground)} on hand.`;
+}
 function saveCount(){
-  const total = +document.getElementById("countTotal").value;
-  const ground = +document.getElementById("countGround").value;
+  const nugsIn = Math.max(0, +document.getElementById("countNugs").value || 0);
+  const ground = Math.max(0, +document.getElementById("countGround").value || 0);
+  const total = nugsIn + ground;
   if (isNaN(total) || total < 0){ toast("Enter the total grams on hand"); return; }
   if (isNaN(ground) || ground < 0){ toast("Enter the ground grams (0 is fine)"); return; }
   if (ground > total){ toast("Ground can't be more than the total"); return; }
