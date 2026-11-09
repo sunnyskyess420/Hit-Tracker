@@ -1003,9 +1003,10 @@
     <label>Ignore overnight hours in gap averages</label>
     <select id="setSleepOn"><option value="0">Off</option><option value="1">On</option></select>
     <div class="chart-row" style="margin-top:6px">
-      <div><label>Asleep from</label><input type="time" id="setSleepStart" value="01:00"></div>
-      <div><label>Awake at</label><input type="time" id="setSleepEnd" value="10:00"></div>
+      <div><label>Asleep from</label><input type="time" id="setSleepStart" value="01:00" onchange="sleepTouched()"></div>
+      <div><label>Awake at</label><input type="time" id="setSleepEnd" value="10:00" onchange="sleepTouched()"></div>
     </div>
+    <p class="tiny" id="sleepPreview" style="margin-top:6px"></p>
     <p class="tiny">Time inside this window is skipped by "Since last", "Longest gap" and the average gap between hits, so a normal night doesn't read as a nine-hour break. Your hits are never changed.</p>
 
     <details class="set-adv">
@@ -2156,6 +2157,34 @@ function onDeviceChange(){
   settings.lastDetailsDevice = document.getElementById("device").value;
   saveSettingsObj();
   prefillDeviceAmount();
+}
+// Setting the hours is a clear sign you want the window used, so switch it on
+// and show the result on a real overnight gap rather than leaving a silent Off.
+function sleepTouched(){
+  const on = document.getElementById("setSleepOn");
+  if (on) on.value = "1";
+  settings.sleepEnabled = true;
+  saveSleepCfg();
+  renderSleepPreview();
+  renderAll();
+}
+function saveSleepCfg(){
+  settings.sleepStart = document.getElementById("setSleepStart").value || "01:00";
+  settings.sleepEnd = document.getElementById("setSleepEnd").value || "10:00";
+  saveSettingsObj();
+}
+function renderSleepPreview(){
+  const el = document.getElementById("sleepPreview");
+  if (!el) return;
+  const on = settings.sleepEnabled;
+  if (!on){
+    el.textContent = "Currently OFF, so a 7pm-to-9am break counts as a full 14h gap.";
+    return;
+  }
+  const d = new Date(); d.setHours(19,0,0,0);
+  const next = new Date(d); next.setDate(next.getDate()+1); next.setHours(9,0,0,0);
+  const awake = activeMs(d.getTime(), next.getTime());
+  el.textContent = `On. A 7pm-to-9am break counts as ${fmtDuration(awake)} instead of 14h.`;
 }
 function setDefaultSize(size){
   settings.lastSize = size;
@@ -3820,6 +3849,7 @@ function openSettings(){
   document.getElementById("setSleepOn").value = settings.sleepEnabled?1:0;
   document.getElementById("setSleepStart").value = settings.sleepStart||"01:00";
   document.getElementById("setSleepEnd").value = settings.sleepEnd||"10:00";
+  renderSleepPreview();
   document.getElementById("setBustupGrams").value = bustupAmount();
   syncBustupPresetChips();
   document.getElementById("setCurrency").value = settings.currency;
