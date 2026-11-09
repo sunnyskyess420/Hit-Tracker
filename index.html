@@ -254,6 +254,7 @@
   .cal-cell .cal-hits{font-size:16px;font-weight:800;line-height:1.05;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45)}
   .cal-cell .cal-hits.sm{font-size:12px}
   .cal-caption{font-size:10px;color:var(--muted2);text-align:center;margin-top:6px}
+  .chart-note{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.35}
   .day-headline{font-size:17px;font-weight:800;letter-spacing:.2px;margin:2px 0 2px}
   /* Patterns: label on top, number big, plain-English caption underneath. */
   .pat-scope{font-size:11px;color:var(--muted);margin:-4px 0 9px}
@@ -836,11 +837,7 @@
     <div id="entries"></div>
 
     <div class="row">
-      <button class="secondary" onclick="exportCSV()">Export CSV</button>
-      <button class="secondary" onclick="exportJSON()">Backup JSON</button>
-      <button class="secondary" onclick="document.getElementById('importFile').click()">Import JSON</button>
-      <button class="secondary" onclick="openReportModal()">🖨️ Print report</button>
-      <button class="secondary danger" onclick="clearAll()">Clear all</button>
+      <button class="secondary" onclick="openSettings();showSettingsPane('privacy',true)">Data &amp; backup →</button>
     </div>
     <input type="file" id="importFile" accept=".json" class="hidden" onchange="importJSON(event)">
   </div>
@@ -878,18 +875,18 @@
   </div>
 
   <!-- ===== CHARTS & REPORTS (moved to bottom) ===== -->
-  <div class="card"><h2>30-day trend</h2><canvas id="trendChart"></canvas></div>
-  <div class="card"><h2>Weekly totals — last 12 weeks</h2><canvas id="weeklyChart"></canvas></div>
+  <div class="card"><h2>30-day trend</h2><canvas id="trendChart"></canvas><div class="chart-note" id="noteTrend"></div></div>
+  <div class="card"><h2>Weekly totals — last 12 weeks</h2><canvas id="weeklyChart"></canvas><div class="chart-note" id="noteWeekly"></div></div>
   <div class="chart-row">
-    <div class="card"><h2>By hour</h2><canvas id="hourChart"></canvas></div>
-    <div class="card"><h2>By weekday</h2><canvas id="dowChart"></canvas></div>
+    <div class="card"><h2>By hour</h2><canvas id="hourChart"></canvas><div class="chart-note" id="noteHour"></div></div>
+    <div class="card"><h2>By weekday</h2><canvas id="dowChart"></canvas><div class="chart-note" id="noteDow"></div></div>
   </div>
   <div class="chart-row">
-    <div class="card"><h2>By device</h2><canvas id="deviceChart"></canvas></div>
-    <div class="card"><h2>By size</h2><canvas id="sizeChart"></canvas></div>
+    <div class="card"><h2>By device</h2><canvas id="deviceChart"></canvas><div class="chart-note" id="noteDevice"></div></div>
+    <div class="card"><h2>By size</h2><canvas id="sizeChart"></canvas><div class="chart-note" id="noteSize"></div></div>
   </div>
   <!-- 14-day chart kept but lower; it's similar to 30-day so smaller priority -->
-  <div class="card"><h2>Daily usage — last 14 days</h2><canvas id="dailyChart"></canvas></div>
+  <div class="card"><h2>Daily usage — last 14 days</h2><canvas id="dailyChart"></canvas><div class="chart-note" id="noteDaily"></div></div>
   <div id="noChartWarn" class="card hidden"><p class="muted" style="font-size:13px">Charts need an internet connection on first load (Chart.js CDN). They'll be cached after.</p></div>
 
   <div class="card"><h2>Weekly report</h2><div id="weeklyReport"></div></div>
@@ -1136,6 +1133,14 @@
       <button class="secondary" style="background:var(--green);color:#fff;font-weight:700" onclick="exportJSON()">Back up to file</button>
       <button class="secondary" onclick="document.getElementById('importFile').click()">Restore from file</button>
     </div>
+    <div class="row">
+      <button class="secondary" onclick="exportCSV()">Export CSV</button>
+      <button class="secondary" onclick="openReportModal()">🖨️ Print report</button>
+    </div>
+    <p class="tiny" style="margin-top:14px">Clearing removes every hit, stash entry and check-in from this browser. It cannot be undone — save a backup first.</p>
+    <div class="row">
+      <button class="secondary danger" onclick="clearAll()">Clear all data</button>
+    </div>
     </div>
   </div>
 </div>
@@ -1271,7 +1276,7 @@
 </div>
 
 <!-- Embedded lighter sound — plays on every "Log a hit" tap -->
-<audio id="hitSound" preload="auto" src="lighting-weed.mp3"></audio>
+<audio id="hitSound" preload="auto" src="hit-sound.wav"></audio>
 <canvas id="fireworksCanvas" aria-hidden="true"></canvas>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -3316,7 +3321,11 @@ function makeLineChart(id,labels,data,color,label,decimal){
   charts[id]=new Chart(document.getElementById(id),{
     type:"line",
     data:{labels,datasets:[{label:label||"",data,borderColor:color,backgroundColor:color+"22",fill:true,tension:.3,pointRadius:2}]},
-    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:decimal?undefined:0,color:"#9aa3a8"},grid:{color:"#262b30"}},x:{ticks:{color:"#9aa3a8",maxRotation:0,autoSkip:true},grid:{display:false}}}}
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{
+      y:{beginAtZero:true,
+         title:{display:true,text:decimal?"grams":"hits",color:"#7d878d",font:{size:10}},
+         ticks:{precision:decimal?undefined:0,color:"#9aa3a8"},grid:{color:"#262b30"}},
+      x:{ticks:{color:"#9aa3a8",maxRotation:0,autoSkip:true},grid:{display:false}}}}
   });
 }
 function makeBarChart(id,labels,data,color,horizontal,decimal){
@@ -3328,29 +3337,55 @@ function makeBarChart(id,labels,data,color,horizontal,decimal){
     options:{
       indexAxis: horizontal?"y":"x",
       responsive:true,plugins:{legend:{display:false}},
-      scales:{y:{beginAtZero:true,ticks:{precision:decimal?undefined:0,color:"#9aa3a8"},grid:{color:"#262b30"}},x:{ticks:{color:"#9aa3a8",maxRotation:0,autoSkip:true},grid:{display:false}}}
+      scales:horizontal
+        ? {x:{beginAtZero:true,ticks:{precision:decimal?undefined:0,color:"#9aa3a8"},grid:{color:"#262b30"}},
+           y:{ticks:{color:"#9aa3a8"},grid:{display:false}}}
+        : {y:{beginAtZero:true,
+             title:{display:true,text:decimal?"grams":"hits",color:"#7d878d",font:{size:10}},
+             ticks:{precision:decimal?undefined:0,color:"#9aa3a8"},grid:{color:"#262b30"}},
+           x:{ticks:{color:"#9aa3a8",maxRotation:0,autoSkip:true},grid:{display:false}}}
     }
   });
+}
+// A plain sentence under each chart: what it counts and the one number worth knowing.
+function setNote(id, txt){
+  const el = document.getElementById(id);
+  if (el) el.textContent = txt;
+}
+function topIndex(values){
+  let bi = 0;
+  values.forEach((v,i) => { if (v > values[bi]) bi = i; });
+  return values[bi] > 0 ? bi : -1;
 }
 function renderCharts(){
   if (!window.Chart){ document.getElementById("noChartWarn").classList.remove("hidden"); return; }
   const isGrams = usingGrams();
   const decimal = isGrams;
+  const fmt = v => isGrams ? gramsFmt(v) : `${v} hit${v===1?"":"s"}`;
+  const sum = arr => arr.reduce((a,b)=>a+b,0);
   // 14-day
   if (isGrams){
     const g14=gramsByDay(14);
     makeLineChart("dailyChart",g14.labels,g14.grams,"#4caf50","Grams",true);
+    const t=sum(g14.grams), bi=topIndex(g14.grams);
+    setNote("noteDaily", t ? `${gramsFmt(t)} over 14 days (${gramsFmt(t/14)} a day)` + (bi>=0?` · biggest day ${g14.labels[bi]} at ${gramsFmt(g14.grams[bi])}`:"") : "Nothing logged in the last 14 days.");
   } else {
     const d14=countByDay(14);
     makeLineChart("dailyChart",d14.labels,d14.counts,"#4caf50","Hits",false);
+    const t=sum(d14.counts), bi=topIndex(d14.counts);
+    setNote("noteDaily", t ? `${t} hit${t===1?"":"s"} over 14 days (${(t/14).toFixed(1)} a day)` + (bi>=0?` · biggest day ${d14.labels[bi]} at ${d14.counts[bi]}`:"") : "Nothing logged in the last 14 days.");
   }
   // 30-day trend
   if (isGrams){
     const g30=gramsByDay(30);
     makeLineChart("trendChart",g30.labels,g30.grams,"#42a5f5","Grams",true);
+    const t=sum(g30.grams), bi=topIndex(g30.grams);
+    setNote("noteTrend", t ? `${gramsFmt(t)} over 30 days` + (bi>=0?` · biggest day ${g30.labels[bi]} at ${gramsFmt(g30.grams[bi])}`:"") : "Nothing logged in the last 30 days.");
   } else {
     const d30=countByDay(30);
     makeLineChart("trendChart",d30.labels,d30.counts,"#42a5f5","Hits",false);
+    const t=sum(d30.counts), bi=topIndex(d30.counts);
+    setNote("noteTrend", t ? `${t} hit${t===1?"":"s"} over 30 days` + (bi>=0?` · biggest day ${d30.labels[bi]} at ${d30.counts[bi]}`:"") : "Nothing logged in the last 30 days.");
   }
   // weekly totals last 12 weeks
   const wLabels=[], wData=[];
@@ -3363,22 +3398,38 @@ function renderCharts(){
     wData.push(isGrams ? weekEntries.reduce((a,x)=>a+entryAmount(x),0) : weekEntries.length);
   }
   makeBarChart("weeklyChart",wLabels,wData,"#7e57c2",false,decimal);
-  // by hour
-  const hourCounts=Array(24).fill(0);
-  log.forEach(x=>hourCounts[new Date(x.time).getHours()]++);
-  makeBarChart("hourChart",hourCounts.map((_,i)=>hourLabel(i)),hourCounts,"#26a69a");
-  // by weekday (Mon-first)
-  const dowCounts=Array(7).fill(0);
-  log.forEach(x=>{ dowCounts[new Date(x.time).getDay()]++; }); // Sun=0
-  makeBarChart("dowChart",["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],dowCounts,"#ef5350");
+  {
+    const t=sum(wData), bi=topIndex(wData);
+    setNote("noteWeekly", t ? `${fmt(t)} over 12 weeks · best week starting ${wLabels[bi]} (${fmt(wData[bi])})` : "No hits in the last 12 weeks. Each bar is one Sunday-to-Saturday week.");
+  }
+  // by hour — follows the grams/hits setting instead of always counting hits
+  const hourVals=Array(24).fill(0);
+  log.forEach(x=>{ hourVals[new Date(x.time).getHours()] += isGrams ? entryAmount(x) : 1; });
+  const hourLabels=hourVals.map((_,i)=>hourLabel(i));
+  makeBarChart("hourChart",hourLabels,hourVals,"#26a69a",false,decimal);
+  {
+    const bi=topIndex(hourVals);
+    setNote("noteHour", bi>=0 ? `Busiest around ${hourRange(bi)} — ${fmt(hourVals[bi])} in that hour.` : "No hits logged yet.");
+  }
+  // by weekday (Sun-first, matching the calendar)
+  const dowVals=Array(7).fill(0);
+  log.forEach(x=>{ dowVals[new Date(x.time).getDay()] += isGrams ? entryAmount(x) : 1; }); // Sun=0
+  const dowNames=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  makeBarChart("dowChart",dowNames,dowVals,"#ef5350",false,decimal);
+  {
+    const bi=topIndex(dowVals);
+    setNote("noteDow", bi>=0 ? `Heaviest on ${dowNames[bi]} — ${fmt(dowVals[bi])} that day of the week.` : "No hits logged yet.");
+  }
   // by device
-  const dev={}; log.forEach(x=>{const d=x.device||"Unknown"; dev[d]=(dev[d]||0)+1;});
+  const dev={}; log.forEach(x=>{const d=x.device||"Unknown"; dev[d]=(dev[d]||0)+(isGrams?entryAmount(x):1);});
   const de=Object.entries(dev).sort((a,b)=>b[1]-a[1]);
-  makeBarChart("deviceChart",de.map(x=>x[0]),de.map(x=>x[1]),"#5c6bc0",true);
+  makeBarChart("deviceChart",de.map(x=>x[0]),de.map(x=>x[1]),"#5c6bc0",true,decimal);
+  setNote("noteDevice", de.length ? `${de[0][0]} leads with ${fmt(de[0][1])}${de.length>1?` · ${de.length} methods in use`:""}` : "No hits logged yet.");
   // by size
-  const sz={}; log.forEach(x=>{const s=x.size||"Unknown"; sz[s]=(sz[s]||0)+1;});
-  const se=Object.entries(sz);
-  makeBarChart("sizeChart",se.map(x=>x[0]),se.map(x=>x[1]),"#66bb6a");
+  const sz={}; log.forEach(x=>{const s=x.size||"Unknown"; sz[s]=(sz[s]||0)+(isGrams?entryAmount(x):1);});
+  const se=Object.entries(sz).sort((a,b)=>b[1]-a[1]);
+  makeBarChart("sizeChart",se.map(x=>x[0]),se.map(x=>x[1]),"#66bb6a",false,decimal);
+  setNote("noteSize", se.length ? `Most often ${se[0][0]} — ${fmt(se[0][1])}` : "No hits logged yet.");
 }
 
 /* ===================================================================

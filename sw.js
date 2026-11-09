@@ -1,5 +1,5 @@
 // Service Worker for Sunnys Hit Tracker - offline-first PWA
-const CACHE_NAME = 'sunnys-hit-tracker-v4';
+const CACHE_NAME = 'sunnys-hit-tracker-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -11,7 +11,7 @@ const ASSETS = [
   './icon-512.png',
   './icon-512-maskable.png',
   './weed-bg.png',
-  './lighting-weed.mp3'
+  './hit-sound.wav'
 ];
 
 self.addEventListener('install', (e) => {
