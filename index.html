@@ -713,11 +713,10 @@
       <div class="limit-info">
         <div id="limitNotice"></div>
         <div class="grid" style="margin-top:8px">
-          <div class="stat"><b id="today">0</b><span>Today (hits)</span></div>
-          <div class="stat"><b id="todayGrams">—</b><span>Today (g)</span></div>
-          <div class="stat"><b id="todayCost">—</b><span>Today's cost</span></div>
-          <div class="stat"><b id="currentGap">—</b><span>Since last</span></div>
-          <div class="stat"><b id="goalBankStat">—</b><span>Carried over</span></div>
+          <div class="stat"><span class="stat-l">Left today</span><b id="todayLeft">—</b><small class="stat-d" id="todayLeftNote">of your daily limit</small></div>
+          <div class="stat"><span class="stat-l">Used today</span><b id="todayUsed">0</b><small class="stat-d" id="todayUsedNote">—</small></div>
+          <div class="stat"><span class="stat-l">Extra from yesterday</span><b id="goalBankStat">—</b><small class="stat-d" id="bankNote">unused allowance, not weed</small></div>
+          <div class="stat"><span class="stat-l">Since last hit</span><b id="currentGap">—</b><small class="stat-d">awake time</small></div>
         </div>
       </div>
     </div>
@@ -727,12 +726,12 @@
   <div class="card">
     <h2>Weed left</h2>
     <div class="grid">
-      <div class="stat"><b id="stashGrams">—</b><span>Total on hand</span></div>
-      <div class="stat"><b id="stashNugs">—</b><span>Nugs (whole)</span></div>
-      <div class="stat"><b id="stashGround">—</b><span>Ground (ready)</span></div>
-      <div class="stat"><b id="stashHitsLeft">—</b><span>Hits remaining</span></div>
-      <div class="stat"><b id="stashPricePerG">—</b><span>Effective $/g</span></div>
-      <div class="stat"><b id="stashSpent">—</b><span>Total spent</span></div>
+      <div class="stat"><span class="stat-l">On hand</span><b id="stashGrams">—</b><small class="stat-d" id="stashLasts">nothing tracked yet</small></div>
+      <div class="stat"><span class="stat-l">Nugs (whole)</span><b id="stashNugs">—</b><small class="stat-d">not ground yet</small></div>
+      <div class="stat"><span class="stat-l">Ground (ready)</span><b id="stashGround">—</b><small class="stat-d">smoke this first</small></div>
+      <div class="stat"><span class="stat-l">Hits remaining</span><b id="stashHitsLeft">—</b><small class="stat-d">at your grams per hit</small></div>
+      <div class="stat"><span class="stat-l">Effective $/g</span><b id="stashPricePerG">—</b><small class="stat-d">what you actually paid</small></div>
+      <div class="stat"><span class="stat-l">Total spent</span><b id="stashSpent">—</b><small class="stat-d">all reups</small></div>
     </div>
 
     <div id="stashLowWarning" style="display:none;margin-top:8px;padding:8px;background:var(--surface2);border-left:4px solid var(--red);border-radius:6px;font-size:13px;color:var(--text)">
@@ -989,7 +988,7 @@
     <select id="setWarn"><option value="1">On</option><option value="0">Off</option></select>
     <label>Carry over unused allowance</label>
     <select id="setGoalBank"><option value="0">Off</option><option value="1">On</option></select>
-    <p class="tiny">When on, grams you don’t use each day are added to the next day’s allowance (capped at 2× your daily limit). The Today card shows this as “carried over”.</p>
+    <p class="tiny">When on, whatever you left unused yesterday is added to today’s allowance — never more than one extra day’s worth, and never more than the weed actually left on hand. It resets tomorrow.</p>
     <label>Default grams per hit (used when you don't enter an amount)</label>
     <input type="number" id="setDefaultGrams" min="0" step="0.01" style="max-width:120px" value="0.02">
     <p class="tiny">Since you don't know your hit count yet, the app estimates each hit at this weight. Adjust it as you learn your real per-hit amount. You can override per hit in “Add details”.</p>
@@ -2281,33 +2280,29 @@ function quickLog(i){
    6. LIMIT & REMINDERS
    =================================================================== */
 function todaysHits(){ const k=dayKey(new Date()); return log.filter(x=>dayKey(x.time)===k); }
-// #15: goal bank — unused daily allowance carries forward (capped at 2× limit)
+// Spare allowance: only *yesterday's* unused allowance carries into today.
+// The old version accumulated every day since your first entry, so after a few
+// light days it sat pinned at the 2x cap — showing "2g carried over" next to a
+// stash that had long since been smoked. Yesterday-only keeps it honest, and it
+// can never claim more than the weed actually left on hand.
 function computeGoalBank(){
   const limit = +settings.dailyLimit || 0;
   if (!limit || !settings.goalBankEnabled || !log.length) return 0;
   const isGrams = usingGrams();
-  const cap = limit * 2;
-  // Total each day once: the old version re-scanned the whole log for every
-  // day since your first entry, on every render.
-  const perDay = {};
-  log.forEach(x => {
-    const k = dayKey(x.time);
-    perDay[k] = (perDay[k] || 0) + (isGrams ? entryAmount(x) : 1);
-  });
-  const firstK = Object.keys(perDay).sort()[0];
-  const todayK = dayKey(new Date());
-  if (!firstK || firstK >= todayK) return 0;
-  let bank = 0;
-  const cur = new Date(firstK + "T12:00:00");
-  // setDate keeps the day counter aligned across DST changes; adding
-  // 86400000 ms drifts by an hour and can skip or repeat a day.
-  while (dayKey(cur) < todayK){
-    const used = perDay[dayKey(cur)] || 0;
-    bank = Math.max(0, bank + (limit - used));
-    if (bank > cap) bank = cap;
-    cur.setDate(cur.getDate() + 1);
+  const yKey = addDaysAgo(1);
+  const yLog = log.filter(x => dayKey(x.time) === yKey);
+  if (!yLog.length) return 0;           // nothing logged yesterday: no basis for spare
+  const usedYesterday = isGrams
+    ? yLog.reduce((sum,x)=>sum+entryAmount(x),0)
+    : yLog.length;
+  let bank = Math.min(limit, Math.max(0, limit - usedYesterday));   // at most one extra day
+  // You cannot have spare allowance worth more than the weed you still have.
+  const tracking = stash.length > 0 || bustups.length > 0;
+  if (tracking){
+    const onHand = stashBreakdown().totalOnHand;
+    if (bank > onHand) bank = Math.max(0, onHand);
   }
-  return bank;
+  return r4(bank);
 }
 function renderLimit(){
   const limit = +settings.dailyLimit || 0;
@@ -2326,6 +2321,14 @@ function renderLimit(){
     else if (!settings.goalBankEnabled) bankEl.textContent = "off";
     else bankEl.textContent = isGrams ? gramsFmt(bank) : bank;
   }
+  // Headline number for the card: what is actually left today.
+  const leftEl = document.getElementById("todayLeft");
+  if (leftEl){
+    const remainTxt = Math.max(0, effLimit - used);
+    leftEl.textContent = isGrams ? gramsFmt(remainTxt) : Math.floor(remainTxt);
+  }
+  const usedEl = document.getElementById("todayUsed");
+  if (usedEl) usedEl.textContent = usedTxt;
   if (limit <= 0){
     arc.setAttribute("stroke-dashoffset", C);
     arc.setAttribute("stroke","var(--muted2)");
@@ -2344,7 +2347,7 @@ function renderLimit(){
   // "goal" read like a target you had achieved. Headline = what's left,
   // detail = exactly where that number comes from.
   const limitLine = bank > 0
-    ? (isGrams ? `${gramsFmt(limit)} limit + ${gramsFmt(bank)} carried over` : `${limit} limit + ${bank} carried over`)
+    ? (isGrams ? `${gramsFmt(limit)} limit + ${gramsFmt(bank)} spare from yesterday` : `${limit} limit + ${bank} spare from yesterday`)
     : (isGrams ? `${gramsFmt(limit)} limit` : `${limit} hits`);
   const usedLine = isGrams
     ? (bank > 0 ? `${gramsFmt(used)} used of ${gramsFmt(effLimit)}` : `${gramsFmt(used)} used of ${gramsFmt(limit)} limit`)
@@ -2435,7 +2438,7 @@ function stashBreakdown(){
   // same instant: acquire first, then grind, then smoke
   events.sort((a,b) => (a.t - b.t) || (a.order - b.order));
 
-  let nugs = 0, ground = 0, fromGround = 0, fromNugs = 0;
+  let nugs = 0, ground = 0, fromGround = 0, shortfall = 0;
   events.forEach(e => {
     if (e.kind === "count"){
       ground = e.ground;
@@ -2449,16 +2452,18 @@ function stashBreakdown(){
       ground += e.amt;                 // trust the batch you actually ground
       return;
     }
-    const g = Math.min(ground, e.amt); // hits smoke the ground first...
+    // Hits only ever come out of the grinder. You cannot smoke a whole nug,
+    // so if the ground is short that is missing data (an unlogged bust-up),
+    // not permission to help yourself from the jar.
+    const g = Math.min(ground, e.amt);
     ground -= g; fromGround += g;
-    const n = Math.min(nugs, e.amt - g); // ...then the nugs, if any
-    nugs -= n; fromNugs += n;
+    if (e.amt - g > 0) shortfall += e.amt - g;
   });
 
   const nugsOnHand = Math.max(0, nugs);
   const groundReady = Math.max(0, ground);
   return { acquired: t.bought, given: t.given, net: t.net, busted, smoked,
-           smokedFromGround: fromGround, smokedFromNugs: fromNugs,
+           smokedFromGround: fromGround, smokedFromNugs: 0, shortfall,
            nugsOnHand, groundReady, totalOnHand: nugsOnHand + groundReady, spent: t.spent };
 }
 // Estimated hits remaining at default grams-per-hit
@@ -2537,6 +2542,28 @@ function renderStash(){
   setText("stashGrams", gramsFmt(b.totalOnHand));
   setText("stashNugs", gramsFmt(b.nugsOnHand));
   setText("stashGround", gramsFmt(b.groundReady));
+  // "How long will this last?" — the question the numbers alone never answer.
+  const lastsEl = document.getElementById("stashLasts");
+  if (lastsEl){
+    const onHand = b.totalOnHand;
+    // 30 days smooths out a quiet week; a 7-day window makes the estimate wild.
+    const perDay = settings.limitUnit === "grams"
+      ? gramsByDay(30).grams.reduce((a,c)=>a+c,0)/30
+      : countByDay(30).counts.reduce((a,c)=>a+c,0)/30;
+    if (onHand <= 0){
+      lastsEl.textContent = "nothing left";
+    } else if (perDay > 0 && settings.limitUnit === "grams"){
+      const days = onHand / perDay;
+      lastsEl.textContent = days < 1 ? "under a day at your recent rate"
+        : days > 400 ? "over a year at your recent rate"
+        : `about ${days < 10 ? days.toFixed(1) : Math.round(days)} days at your recent rate`;
+    } else if (perDay > 0){
+      const hits = Math.floor(onHand / Math.max(+settings.gramsPerHit || 0.02, 0.001));
+      lastsEl.textContent = `about ${hits} hit${hits===1?"":"s"} left`;
+    } else {
+      lastsEl.textContent = "no hits in the last week to estimate from";
+    }
+  }
   setText("stashPricePerG", ppg>0 ? money(ppg) : "—");
   setText("stashHitsLeft", b.totalOnHand > 0 ? hits : "—");
   setText("stashSpent", b.spent>0 ? money(b.spent) : "—");
@@ -2581,7 +2608,17 @@ function renderStash(){
   if (gEl){
     const gph = +settings.defaultGramsPerHit || 0.02;
     const almostOut = b.groundReady < gph * 3;
-    if (b.nugsOnHand > 0.05 && almostOut){
+    const tracking = stash.length > 0 || bustups.length > 0;
+    if (tracking && b.shortfall > 0.02){
+      // Missing ground beats "running low" — say the real thing.
+      const txt = `<b>${gramsFmt(b.shortfall)} of hits has no ground behind it.</b>`
+        + (b.nugsOnHand > 0.05 ? ` You have ${gramsFmt(b.nugsOnHand)} in whole nugs.` : "")
+        + " Either a bust-up wasn't logged, or the ground ran out.";
+      document.getElementById("groundNudgeText").innerHTML = txt + " Bust up " + bustupLabel() + "?";
+      const gb = document.getElementById("groundNudgeBtn");
+      if (gb) gb.innerHTML = '<svg class="ico-inline" aria-hidden="true"><use href="#ico-grind"/></svg>Bust up ' + bustupLabel();
+      gEl.style.display = "";
+    } else if (b.nugsOnHand > 0.05 && almostOut){
       const txt = b.groundReady <= 0
         ? `<b>Nothing ground.</b> You have ${gramsFmt(b.nugsOnHand)} in whole nugs.`
         : `<b>Running low on ground</b> — ${gramsFmt(b.groundReady)} left.`;
@@ -2610,7 +2647,7 @@ function renderStash(){
         `<div class="row-line"><span class="lbl">» Acquired (reups)</span><span class="val">${gramsFmt(b.acquired)}</span></div>` +
         (b.given > 0 ? `<div class="row-line"><span class="lbl">− Given away / sold</span><span class="val">${gramsFmt(b.given)}</span></div>` : "") +
         `<div class="row-line"><span class="lbl">− Busted up → ground</span><span class="val">${gramsFmt(b.busted)}</span></div>` +
-        (b.smokedFromNugs > 0 ? `<div class="row-line"><span class="lbl">− Smoked from whole nugs</span><span class="val">${gramsFmt(b.smokedFromNugs)}</span></div>` : "") +
+        (b.shortfall > 0.02 ? `<div class="row-line"><span class="lbl">Hits with no ground behind them</span><span class="val">${gramsFmt(b.shortfall)}</span></div>` : "") +
         `<div class="row-line total"><span class="lbl">= Nugs on hand</span><span class="val">${gramsFmt(b.nugsOnHand)}</span></div>` +
         // Stage 2: ground weed (ready to smoke) — only when you actually grind
         (b.busted > 0 ?
@@ -4993,6 +5030,40 @@ function computeStreaks(){
   }
   return {current, longest};
 }
+// Sub-labels on the Today card, so no number is left unexplained.
+function renderTodayNotes(){
+  const limit = +settings.dailyLimit || 0;
+  const bank = computeGoalBank();
+  const isGrams = usingGrams();
+  const used = isGrams ? dayGrams(dayKey(new Date())) : todaysHits().length;
+  const hits = todaysHits().length;
+  const g = dayGrams(dayKey(new Date()));
+  const leftNote = document.getElementById("todayLeftNote");
+  if (leftNote){
+    if (!limit) leftNote.textContent = "no daily limit set";
+    else leftNote.textContent = "of " + (isGrams ? gramsFmt(limit + bank) : (limit + bank) + " hits") + " allowance";
+  }
+  const costToday = todaysHits().reduce((a,x)=>a+hitCost(x),0);
+  const usedNote = document.getElementById("todayUsedNote");
+  if (usedNote){
+    usedNote.textContent = isGrams
+      ? `${hits} hit${hits===1?"":"s"} · ${money(costToday)}`
+      : `${gramsFmt(g)} · ${money(costToday)}`;
+  }
+  const bankNote = document.getElementById("bankNote");
+  if (bankNote){
+    if (!settings.goalBankEnabled) bankNote.textContent = "turned off in Settings";
+    else if (bank > 0){
+      const yKey = addDaysAgo(1);
+      const yUsed = isGrams
+        ? log.filter(x=>dayKey(x.time)===yKey).reduce((a,x)=>a+entryAmount(x),0)
+        : log.filter(x=>dayKey(x.time)===yKey).length;
+      bankNote.textContent = `yesterday you used ${isGrams ? gramsFmt(yUsed) : yUsed + " hits"}`;
+    } else {
+      bankNote.textContent = "unused allowance, not weed";
+    }
+  }
+}
 function renderStreaks(){
   const s = computeStreaks();
   setText("streakCurrent", s.current);
@@ -5018,6 +5089,7 @@ function renderAll(){
   renderStreaks();
 
   renderLimit();
+  renderTodayNotes();
   renderCostStats();
   renderStash();
   renderStrainOptions();
@@ -5179,8 +5251,11 @@ function runSelfTests(){
     log.push({id:"r5", time:iso(1), amount:1.0, device:"Pipe", size:"Medium", tags:[]});
     b = stashBreakdown();
     eq("pre-bust smoking does not shrink the batch", r4(b.groundReady), 1);
-    eq("nugs = 28 - 1.79 - 2", r4(b.nugsOnHand), 24.21);
-    eq("total still nets out", r4(b.totalOnHand), 25.21);
+    // Hits before any bust-up have nothing to draw from: they are missing data,
+    // not a withdrawal from the jar. Nugs only move when you grind or give away.
+    eq("nugs = 28 - 2 busted (hits never eat nugs)", r4(b.nugsOnHand), 26);
+    eq("the 1.79g is reported as a shortfall", r4(b.shortfall), 1.79);
+    eq("total = ground 1 + nugs 26", r4(b.totalOnHand), 27);
 
     // A physical count overrides the estimate from that moment on.
     settings.inventoryFix = { at:iso(0), total:0.33, ground:0.33 };
@@ -5208,7 +5283,7 @@ function runSelfTests(){
     ok("PIN lockout escalates", pinLockSeconds(3) < pinLockSeconds(4) && pinLockSeconds(4) < pinLockSeconds(6));
     ok("PIN lockout caps at 15 min", pinLockSeconds(99) <= 900);
 
-    // Goal bank: unused allowance from past days, capped at 2x the limit
+    // Spare allowance: only yesterday counts, and never more than one day's limit
     settings.dailyLimit = 1; settings.goalBankEnabled = true; settings.limitUnit = "grams";
     settings.pricePerGram = 0; settings.costPerSize = {Small:0, Medium:0, Large:0};
     stash = []; bustups = [];
@@ -5217,7 +5292,10 @@ function runSelfTests(){
       {id:"g2", time:new Date(Date.now() - 2*86400000).toISOString(), amount:1.0, device:"Pipe", size:"Medium", tags:[]},
       {id:"g3", time:new Date(Date.now() - 1*86400000).toISOString(), amount:0.2, device:"Pipe", size:"Medium", tags:[]}
     ];
-    eq("goal bank = 0.5 + 0 + 0.8", Math.round(computeGoalBank()*100)/100, 1.3);
+    eq("spare = yesterday's unused (1 - 0.2)", Math.round(computeGoalBank()*100)/100, 0.8);
+    log.unshift({id:"g0", time:new Date(Date.now() - 1*86400000 + 3600000).toISOString(), amount:1.0, device:"Pipe", size:"Medium", tags:[]});
+    eq("spare capped at one day's limit", Math.round(computeGoalBank()*100)/100, 0);
+    log.shift();
     settings.goalBankEnabled = false;
     eq("goal bank off = 0", computeGoalBank(), 0);
 
