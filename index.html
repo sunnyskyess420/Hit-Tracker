@@ -992,6 +992,11 @@
     <label>Default grams per hit (used when you don't enter an amount)</label>
     <input type="number" id="setDefaultGrams" min="0" step="0.01" style="max-width:120px" value="0.02">
     <p class="tiny">Since you don't know your hit count yet, the app estimates each hit at this weight. Adjust it as you learn your real per-hit amount. You can override per hit in “Add details”.</p>
+    <label>Default hit size</label>
+    <select id="setDefaultSize" onchange="setDefaultSize(this.value)">
+      <option>Small</option><option>Medium</option><option>Large</option>
+    </select>
+    <p class="tiny">Used when you tap Log a hit without opening Add details. If you only take small hits, set this to Small so your history is recorded the way you actually smoke.</p>
 
     
     <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Sleep window</h2>
@@ -2151,6 +2156,12 @@ function onDeviceChange(){
   settings.lastDetailsDevice = document.getElementById("device").value;
   saveSettingsObj();
   prefillDeviceAmount();
+}
+function setDefaultSize(size){
+  settings.lastSize = size;
+  selectedSize = size;
+  renderSizeChips();
+  saveSettingsObj();
 }
 function setSize(size){
   selectedSize = size;
@@ -3474,12 +3485,22 @@ function renderCharts(){
   const dev={}; log.forEach(x=>{const d=x.device||"Unknown"; dev[d]=(dev[d]||0)+(isGrams?entryAmount(x):1);});
   const de=Object.entries(dev).sort((a,b)=>b[1]-a[1]);
   makeBarChart("deviceChart",de.map(x=>x[0]),de.map(x=>x[1]),"#5c6bc0",true,decimal);
-  setNote("noteDevice", de.length ? `${de[0][0]} leads with ${fmt(de[0][1])}${de.length>1?` · ${de.length} methods in use`:""}` : "No hits logged yet.");
+  {
+    const tot = de.reduce((a,x)=>a+x[1],0);
+    setNote("noteDevice", de.length && tot > 0
+      ? `${de[0][0]} is ${Math.round(de[0][1]/tot*100)}% of it (${fmt(de[0][1])})${de.length>1?` · ${de.length} methods in use`:""}`
+      : "No hits logged yet.");
+  }
   // by size
   const sz={}; log.forEach(x=>{const s=x.size||"Unknown"; sz[s]=(sz[s]||0)+(isGrams?entryAmount(x):1);});
   const se=Object.entries(sz).sort((a,b)=>b[1]-a[1]);
   makeBarChart("sizeChart",se.map(x=>x[0]),se.map(x=>x[1]),"#66bb6a",false,decimal);
-  setNote("noteSize", se.length ? `Most often ${se[0][0]} — ${fmt(se[0][1])}` : "No hits logged yet.");
+  {
+    const tot = se.reduce((a,x)=>a+x[1],0);
+    setNote("noteSize", se.length && tot > 0
+      ? `${se[0][0]} accounts for ${Math.round(se[0][1]/tot*100)}% (${fmt(se[0][1])})${se.length>1?` · sizes logged: ${se.map(x=>x[0]).join(", ")}`:""}`
+      : "No hits logged yet.");
+  }
 }
 
 /* ===================================================================
@@ -3793,6 +3814,8 @@ function openSettings(){
   document.getElementById("setLimit").value = settings.dailyLimit||0;
   document.getElementById("setWarn").value = settings.warnAt80?1:0;
   document.getElementById("setDefaultGrams").value = settings.defaultGramsPerHit||0.02;
+  const dsEl = document.getElementById("setDefaultSize");
+  if (dsEl) dsEl.value = settings.lastSize || "Medium";
   document.getElementById("setLowStash").value = settings.lowStashThreshold||7;
   document.getElementById("setSleepOn").value = settings.sleepEnabled?1:0;
   document.getElementById("setSleepStart").value = settings.sleepStart||"01:00";
@@ -3834,6 +3857,8 @@ function saveSettings(){
   settings.dailyLimit = +document.getElementById("setLimit").value||0;
   settings.warnAt80 = document.getElementById("setWarn").value==="1";
   settings.defaultGramsPerHit = +document.getElementById("setDefaultGrams").value||0.02;
+  const dsEl2 = document.getElementById("setDefaultSize");
+  if (dsEl2 && dsEl2.value) settings.lastSize = dsEl2.value;
   settings.currency = document.getElementById("setCurrency").value;
   refreshCurrencySymbols();
   document.getElementById("curSym").textContent = curSym();
@@ -5298,6 +5323,52 @@ function runSelfTests(){
     eq("esc neutralises markup", esc("<b>x</b>"), "&lt;b&gt;x&lt;/b&gt;");
     ok("PIN lockout escalates", pinLockSeconds(3) < pinLockSeconds(4) && pinLockSeconds(4) < pinLockSeconds(6));
     ok("PIN lockout caps at 15 min", pinLockSeconds(99) <= 900);
+
+    // ---- Maths audit: every chart must add up to the same pile ----
+    {
+      const now = Date.now(), D = 86400000;
+      const mk = (dayAgo, amt, dev, sz) => ({id:"m"+dayAgo+"_"+amt, time:new Date(now-dayAgo*D-3600000).toISOString(),
+        amount:amt, device:dev, size:sz, tags:[]});
+      log = [mk(30,0.3,"Pipe","Small"), mk(20,0.5,"Joint","Small"), mk(10,0.7,"Pipe","Medium"), mk(2,0.1,"Bong","Small")];
+      stash = []; bustups = []; settings.inventoryFix = null;
+      settings.limitUnit = "grams"; settings.defaultGramsPerHit = 0.02;
+      const totalG = log.reduce((a,x)=>a+entryAmount(x),0);
+      eq("entryAmount sums to 1.6g", r4(totalG), 1.6);
+
+      const bySize = {};
+      log.forEach(x => { const k = x.size||"Unknown"; bySize[k] = (bySize[k]||0) + entryAmount(x); });
+      eq("size buckets add up to the total", r4(Object.values(bySize).reduce((a,b)=>a+b,0)), 1.6);
+      eq("Small is 0.9g of it", r4(bySize.Small), 0.9);
+
+      const byHour = Array(24).fill(0);
+      log.forEach(x=>{ byHour[new Date(x.time).getHours()] += entryAmount(x); });
+      eq("hour buckets add up to the total", r4(byHour.reduce((a,b)=>a+b,0)), 1.6);
+
+      const byDow = Array(7).fill(0);
+      log.forEach(x=>{ byDow[new Date(x.time).getDay()] += entryAmount(x); });
+      eq("weekday buckets add up to the total", r4(byDow.reduce((a,b)=>a+b,0)), 1.6);
+
+      const byDev = {};
+      log.forEach(x=>{ const k = x.device||"Unknown"; byDev[k] = (byDev[k]||0) + entryAmount(x); });
+      eq("device buckets add up to the total", r4(Object.values(byDev).reduce((a,b)=>a+b,0)), 1.6);
+
+      const perDay = {};
+      log.forEach(x=>{ const k = dayKey(x.time); perDay[k] = (perDay[k]||0) + entryAmount(x); });
+      eq("day buckets add up to the total", r4(Object.values(perDay).reduce((a,b)=>a+b,0)), 1.6);
+
+      // a hit with no size recorded must not vanish from the chart
+      log.push({id:"mNoSize", time:new Date(now-86400000).toISOString(), amount:0.2, device:"Pipe", tags:[]});
+      const bySize2 = {};
+      log.forEach(x => { const k = x.size||"Unknown"; bySize2[k] = (bySize2[k]||0) + entryAmount(x); });
+      eq("unsized hits are still counted", r4(Object.values(bySize2).reduce((a,b)=>a+b,0)), 1.8);
+      log.pop();
+
+      // cost per hit must not drift from the grams it is based on
+      settings.pricePerGram = 10; settings.costPerSize = {Small:0, Medium:0, Large:0};
+      eq("cost of 0.3g at 10/g is 3.00", Math.round(hitCost(log[0])*100)/100, 3);
+      eq("summed cost matches summed grams x price",
+         Math.round(log.reduce((a,x)=>a+hitCost(x),0)*100)/100, 16);
+    }
 
     // Spare allowance: only yesterday counts, and never more than one day's limit
     settings.dailyLimit = 1; settings.goalBankEnabled = true; settings.limitUnit = "grams";
