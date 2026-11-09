@@ -1,5 +1,5 @@
 // Service Worker for Sunnys Hit Tracker - offline-first PWA
-const CACHE_NAME = 'sunnys-hit-tracker-v5';
+const CACHE_NAME = 'sunnys-hit-tracker-v6';
 const ASSETS = [
   './',
   './index.html',
