@@ -539,6 +539,16 @@
   <div class="hint">Tap anywhere to resume</div>
 </div>
 
+<!-- ===== DUPLICATE INSTANCE NOTICE ===== -->
+<div id="dupOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Already open">
+  <div class="lock-box">
+    <h2>Already open</h2>
+    <p>Your tracker is running in another window. Two at once can overwrite each other's saves.</p>
+    <button class="secondary" style="width:100%;margin-top:8px" onclick="document.getElementById('dupOverlay').classList.add('hidden')">Use this window anyway</button>
+    <button class="secondary" style="width:100%;margin-top:8px" onclick="window.close()">Close this tab</button>
+  </div>
+</div>
+
 <div class="wrap" id="appWrap">
 
   <header class="topbar">
@@ -1086,6 +1096,8 @@
     <h2>Edit hit</h2>
     <p class="tiny">Fix what was recorded — the time stays the same.</p>
     <input type="hidden" id="editHitId">
+    <label>When</label>
+    <input type="datetime-local" id="editHitTime">
     <div class="chart-row">
       <div><label>Device</label><select id="editHitDevice"></select></div>
       <div><label>Size</label><select id="editHitSize"></select></div>
@@ -2661,12 +2673,25 @@ function openHitEdit(id){
   document.getElementById("editHitAmount").value = e.amount != null ? e.amount : "";
   document.getElementById("editHitStrain").value = e.strain || "";
   document.getElementById("editHitNote").value = e.note || "";
+  const d = new Date(e.time);
+  const p2 = n => String(n).padStart(2, "0");
+  document.getElementById("editHitTime").value =
+    d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate())
+    + "T" + p2(d.getHours()) + ":" + p2(d.getMinutes());
   openModal("editHitModal");
 }
 function saveHitEdit(){
   const id = document.getElementById("editHitId").value;
   const e = log.find(x => String(x.id) === String(id));
   if (!e) return;
+  const amRaw = document.getElementById("editHitAmount").value;
+  const gEdit = amRaw === "" ? null : +amRaw;
+  if (gEdit != null && (isNaN(gEdit) || gEdit <= 0 || gEdit > 5)){
+    toast("Grams must be between 0 and 5");
+    return;
+  }
+  const when = new Date(document.getElementById("editHitTime").value);
+  if (!isNaN(when.getTime())) e.time = when.toISOString();
   e.device = document.getElementById("editHitDevice").value;
   e.size   = document.getElementById("editHitSize").value;
   const am = document.getElementById("editHitAmount").value;
@@ -3191,7 +3216,7 @@ function openDay(k){
         <small>${esc(x.note)||"<span class='muted'>no note</span>"}</small>
         ${extras.length?`<small class="muted">${esc(extras.join(" • "))}</small>`:""}
         ${tagline?`<div class="tagline">${tagline}</div>`:""}
-      </div><button onclick="deleteEntry('${x.id}');openDay('${k}')">•</button></div>`;
+      </div><button class="del-btn" style="color:var(--muted)" onclick="openHitEdit('${x.id}')" aria-label="Edit hit">✎</button><button onclick="deleteEntry('${x.id}');openDay('${k}')">•</button></div>`;
     }).join("");
   }
   document.getElementById("dayModalBody").innerHTML = html;
@@ -5151,6 +5176,28 @@ catch (e){
   document.title = "INIT ERROR";
   if (typeof toast === "function") toast("Startup error — some features may be off");
 }
+
+/* ---- Single instance: one window at a time (shortcuts exempt) ---- */
+(function singleInstance(){
+  if (/[?&](action|selftest)=/.test(location.search)) return;
+  const showDup = () => {
+    const ov = document.getElementById("dupOverlay");
+    if (ov) ov.classList.remove("hidden");
+  };
+  if (navigator.locks){
+    navigator.locks.request("hitTrackerInstance", { ifAvailable: true }, (lock) => {
+      if (lock) return new Promise(() => {});
+      showDup();
+    }).catch(() => {});
+    return;
+  }
+  const K = "htInstancePing";
+  const beat = () => { try { localStorage.setItem(K, String(Date.now())); } catch(e){} };
+  if (Date.now() - (+(localStorage.getItem(K) || 0)) < 8000) showDup();
+  beat();
+  setInterval(beat, 4000);
+  window.addEventListener("beforeunload", () => { try { localStorage.removeItem(K); } catch(e){} });
+})();
 
 /* ---- PWA launch shortcuts: index.html?action=hit|bustup|checkin ----
    Two paths can deliver a taskbar jump-list shortcut click:

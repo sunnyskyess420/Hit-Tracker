@@ -9,7 +9,9 @@
     "window-controls-overlay"
   ],
   "orientation": "portrait",
-  "launch_handler": { "client_mode": "auto" },
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
   "background_color": "#101214",
   "theme_color": "#101214",
   "icons": [
