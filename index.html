@@ -765,24 +765,6 @@
       <button class="secondary" id="groundNudgeBtn" style="margin-top:8px;width:100%;background:var(--green);color:#fff;font-weight:700" onclick="bustUp('')">Bust up</button>
     </div>
 
-    <div class="pat-h">Vape &amp; concentrate</div>
-    <div class="grid">
-      <div class="stat"><span class="stat-l">Vape on hand</span><b id="vapeLeft">—</b><small class="stat-d" id="vapeNote">not counted yet</small></div>
-      <div class="stat"><span class="stat-l">Concentrate on hand</span><b id="concLeft">—</b><small class="stat-d" id="concNote">not counted yet</small></div>
-      <div class="stat"><span class="stat-l">Vape used</span><b id="vapeUsed">—</b><small class="stat-d">since you counted</small></div>
-      <div class="stat"><span class="stat-l">Concentrate used</span><b id="concUsed">—</b><small class="stat-d">since you counted</small></div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button class="secondary" onclick="openOtherReup('vape')">Reup vape</button>
-      <button class="secondary" onclick="openOtherReup('conc')">Reup concentrate</button>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button class="secondary" onclick="openOtherStash()">Set vape / concentrate</button>
-    </div>
-    <p class="tiny" id="vapeDetail" style="margin-top:8px"></p>
-    <p class="tiny" id="concDetail" style="margin-top:2px"></p>
-    <p class="tiny" id="otherMoney" style="margin-top:6px"></p>
-
     <!-- Clear breakdown of the math -->
     <div id="weedMath" class="weed-math"></div>
 
@@ -799,6 +781,26 @@
       <button class="secondary" onclick="openGiveaway()">Give away / sell</button>
       <button class="secondary" onclick="openCount()">Count it</button>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>Vape &amp; concentrate</h2>
+    <div class="grid">
+      <div class="stat"><span class="stat-l">Vape on hand</span><b id="vapeLeft">—</b><small class="stat-d" id="vapeNote">not counted yet</small></div>
+      <div class="stat"><span class="stat-l">Concentrate on hand</span><b id="concLeft">—</b><small class="stat-d" id="concNote">not counted yet</small></div>
+      <div class="stat"><span class="stat-l">Vape used</span><b id="vapeUsed">—</b><small class="stat-d">since you counted</small></div>
+      <div class="stat"><span class="stat-l">Concentrate used</span><b id="concUsed">—</b><small class="stat-d">since you counted</small></div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="secondary" onclick="openOtherReup('vape')">Reup vape</button>
+      <button class="secondary" onclick="openOtherReup('conc')">Reup concentrate</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="secondary" onclick="openOtherStash()">Set vape / concentrate</button>
+    </div>
+    <p class="tiny" id="vapeDetail" style="margin-top:8px"></p>
+    <p class="tiny" id="concDetail" style="margin-top:2px"></p>
+    <p class="tiny" id="otherMoney" style="margin-top:6px"></p>
   </div>
 
   <!-- ===== CALENDAR ===== -->
@@ -5253,9 +5255,9 @@ function renderOtherStash(){
     return bits.length ? bits.join(" · ") : "not counted yet";
   };
   const vDetail = document.getElementById("vapeDetail");
-  if (vDetail) vDetail.textContent = detail("vape", vape == null ? 0 : vape);
+  if (vDetail) vDetail.textContent = "Vape \u2014 " + detail("vape", vape == null ? 0 : vape);
   const cDetail = document.getElementById("concDetail");
-  if (cDetail) cDetail.textContent = detail("conc", conc == null ? 0 : conc);
+  if (cDetail) cDetail.textContent = "Concentrate \u2014 " + detail("conc", conc == null ? 0 : conc);
 
   const moneyEl = document.getElementById("otherMoney");
   if (moneyEl){
