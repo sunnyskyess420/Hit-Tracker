@@ -79,7 +79,12 @@
     border-bottom:1px solid var(--border);
     display:flex;align-items:center;gap:8px;
   }
-  header.topbar h1{font-size:18px;margin:0;flex:1;font-weight:700}
+  /* min-width:0 lets flex shrink the title; without it the sticky header wraps
+     to two lines on a phone and the leaf ends up on its own row. */
+  header.topbar h1{
+    font-size:18px;margin:0;flex:1;min-width:0;font-weight:700;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
   header.topbar .ico-btn{
     background:var(--surface2);border:1px solid var(--border2);color:var(--text);
     width:38px;height:38px;border-radius:10px;font-size:16px;cursor:pointer;
@@ -107,7 +112,9 @@
      and trim the title so the sticky header stays on a single line. */
   @media (max-width:419px){
     header.topbar h1::after{display:none}
-    header.topbar h1{font-size:17px}
+    header.topbar h1{font-size:16px}
+    header.topbar .ico-btn{width:34px;height:34px}
+    header.topbar h1::before{width:1.6em;height:1.6em}
   }
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
   .stat{background:var(--surface2);border-radius:var(--radius-sm);padding:10px;text-align:center}
@@ -241,9 +248,17 @@
   .cal-cell .cal-reup{position:absolute;top:1px;left:2px;color:#b39ddb;filter:drop-shadow(0 0 2px #000);z-index:2;line-height:1}
   .cal-cell .cal-x svg,.cal-cell .cal-reup svg{width:13px;height:13px;display:block}
   /* Hit leaves — small 🌿 icons, one per hit, wrapped to fill the cell */
-  .cal-cell .cal-leaves{position:absolute;left:1px;right:1px;top:14px;bottom:1px;line-height:0.85;letter-spacing:-1px;text-align:center;word-break:break-all;overflow:hidden;z-index:1}
-  .cal-cell .cal-leaves{font-size:7px}
-  .cal-cell .cal-more{position:absolute;bottom:0;left:50%;transform:translateX(-50%);font-size:7px;font-weight:700;color:#fff;text-shadow:0 0 2px #000,0 0 2px #000;z-index:2;line-height:1}
+  .cal-cell{flex-direction:column;gap:0}
+  .cal-cell .n{font-size:11px;color:var(--muted);line-height:1}
+  .cal-cell.cal-tier-1 .n,.cal-cell.cal-tier-2 .n,.cal-cell.cal-tier-3 .n,.cal-cell.cal-tier-4 .n{color:rgba(255,255,255,.88)}
+  .cal-cell .cal-hits{font-size:16px;font-weight:800;line-height:1.05;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45)}
+  .cal-cell .cal-hits.sm{font-size:12px}
+  .cal-caption{font-size:10px;color:var(--muted2);text-align:center;margin-top:6px}
+  .cal-cell .cal-g{font-size:8px;font-weight:600;color:rgba(255,255,255,.8);line-height:1;margin-top:1px;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+  /* Empty days stay quiet so the days you used pop */
+  .cal-cell:not(.cal-tier-1):not(.cal-tier-2):not(.cal-tier-3):not(.cal-tier-4) .n{opacity:.62}
+  /* markers sit on coloured cells too — give them a backing so they stay visible */
+  .cal-cell .cal-x,.cal-cell .cal-reup{background:rgba(0,0,0,.28);border-radius:50%;padding:1px}
   /* Calendar tiers: cool→warm progression (none → green → lime → amber → red) */
   .cal-tier-0{background:#1b1e22}            /* none — dark slate */
   .cal-tier-1{background:#2e7d32}            /* light — forest green */
@@ -751,14 +766,15 @@
     <div class="cal-grid" id="calDowRow"></div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="cal-legend">
-      <span><i class="cal-tier-0"></i> none</span>
-      <span><i class="cal-tier-1"></i> light</span>
-      <span><i class="cal-tier-2"></i> moderate</span>
-      <span><i class="cal-tier-3"></i> heavy</span>
-      <span><i class="cal-tier-4"></i> very heavy</span>
+      <span><i class="cal-tier-0"></i> <b id="lg0">none</b></span>
+      <span><i class="cal-tier-1"></i> <b id="lg1"></b></span>
+      <span><i class="cal-tier-2"></i> <b id="lg2"></b></span>
+      <span><i class="cal-tier-3"></i> <b id="lg3"></b></span>
+      <span><i class="cal-tier-4"></i> <b id="lg4"></b></span>
       <span><svg class="ico-inline" style="color:#fff" aria-hidden="true"><use href="#ico-grind"/></svg>bust-up</span>
       <span><svg class="ico-inline" style="color:#b39ddb" aria-hidden="true"><use href="#ico-reup"/></svg>reup</span>
     </div>
+    <div class="cal-caption">Big number = hits that day · colour = grams used</div>
     <div class="cal-month-total" id="calMonthTotal"></div>
   </div>
 
@@ -2508,8 +2524,10 @@ function renderStash(){
       const fixAfter = settings.inventoryFix && +new Date(settings.inventoryFix.at) >= ts;
       const sinceG = log.filter(x => +new Date(x.time) >= ts).reduce((s,x)=>s+entryAmount(x),0);
       const leftG = fixAfter ? b.groundReady : Math.max(0, amt - sinceG);
-      lbEl.textContent = gramsFmt(amt) + " batch from "
-        + new Date(last.date + "T12:00:00").toLocaleDateString(undefined, {month:"short", day:"numeric"})
+      const bt = new Date(last.date + "T12:00:00");
+      const bDateTxt = isNaN(bt.getTime()) ? "unknown date"
+        : bt.toLocaleDateString(undefined, {month:"short", day:"numeric"});
+      lbEl.textContent = gramsFmt(amt) + " batch from " + bDateTxt
         + " — " + gramsFmt(leftG) + " left";
       lbEl.style.display = "";
     } else {
@@ -3097,26 +3115,25 @@ function calRender(){
   for (let i=0;i<firstDow;i++) html+=`<div class="cal-cell blank"></div>`;
   const todayK = dayKey(new Date());
   let monthHits=0, monthGrams=0, monthBustups=0;
-  const MAX_LEAVES = 20; // cap visible leaves per day; show "+N" if more (for the all-day-long days)
   for (let d=1; d<=days; d++){
     const k=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
     const v=dayVals[k]||{hits:0,grams:0};
     monthHits+=v.hits; monthGrams+=v.grams;
     const hasBustup = bustupDays[k]; if (hasBustup) monthBustups++;
     const hasReup = reupDays[k] != null;
-    const tierVal = isGrams ? v.grams : v.hits;
-    const tier=calTier(tierVal, isGrams?"grams":"hits");
+    // Colour always tracks grams, because one dab and one vape hit are not the
+    // same quantity. Hit count is the big number; colour is how much was used.
+    const tier = calTier(v.grams, "grams");
     const show = v.hits>0;
-    // Build leaf icons: one per hit, capped at MAX_LEAVES. If more, show "+N".
-    let leavesHtml = "";
-    if (show){
-      const visible = Math.min(v.hits, MAX_LEAVES);
-      leavesHtml = '<span class="cal-leaves">' + '🌿'.repeat(visible) + '</span>';
-      if (v.hits > MAX_LEAVES){
-        leavesHtml += `<span class="cal-more">+${v.hits - MAX_LEAVES}</span>`;
-      }
-    }
-    html+=`<div class="cal-cell cal-tier-${tier} ${k===todayK?"today":""}" onclick="openDay('${k}')" oncontextmenu="event.preventDefault();openReupEditor('${k}')"><span class="n">${d}</span>${leavesHtml}${hasBustup?`<span class="cal-x"><svg aria-hidden="true"><use href="#ico-grind"/></svg></span>`:""}${hasReup?`<span class="cal-reup"><svg aria-hidden="true"><use href="#ico-reup"/></svg></span>`:""}</div>`;
+    // One legible number per day. The heat colour still conveys magnitude,
+    // so a 3-hit day and a 40-hit day read instantly without counting icons.
+    const hitsWord = `${v.hits} hit${v.hits===1?"":"s"}`;
+    const countHtml = show
+      ? `<span class="cal-hits${v.hits >= 100 ? " sm" : ""}">${v.hits}</span>`
+        + (isGrams ? `<span class="cal-g">${gramsFmt(v.grams)}</span>` : "")
+      : "";
+    const cellTitle = show ? `${hitsWord} \u00b7 ${gramsFmt(v.grams)}` : "No hits";
+    html+=`<div class="cal-cell cal-tier-${tier} ${k===todayK?"today":""}" title="${cellTitle}" aria-label="${d}: ${cellTitle}" onclick="openDay('${k}')" oncontextmenu="event.preventDefault();openReupEditor('${k}')"><span class="n">${d}</span>${countHtml}${hasBustup?`<span class="cal-x"><svg aria-hidden="true"><use href="#ico-grind"/></svg></span>`:""}${hasReup?`<span class="cal-reup"><svg aria-hidden="true"><use href="#ico-reup"/></svg></span>`:""}</div>`;
   }
   document.getElementById("calGrid").innerHTML = html;
   const bustupTxt = monthBustups>0 ? ` • ${monthBustups} bust-up${monthBustups===1?"":"s"}` : "";
@@ -3125,6 +3142,9 @@ function calRender(){
     ? `Month: ${gramsFmt(monthGrams)} • ${monthHits} hits${bustupTxt}${reupTxt} • ${money(monthCostForMonth(y,m))}`
     : `Month: ${monthHits} hit${monthHits===1?"":"s"}${bustupTxt}${reupTxt} • ${money(monthCostForMonth(y,m))}`;
   document.getElementById("calMonthTotal").textContent = totalTxt;
+  // Spell out what each heat colour means instead of adjectives like "heavy".
+  const lg = ["0g","\u2264 0.3g","\u2264 0.7g","\u2264 1.2g","> 1.2g"];
+  lg.forEach((t,i) => { const el = document.getElementById("lg"+i); if (el) el.textContent = t; });
 }
 function monthCostForMonth(y,m){
   const prefix=`${y}-${String(m+1).padStart(2,"0")}-`;
