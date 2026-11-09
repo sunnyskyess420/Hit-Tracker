@@ -713,11 +713,10 @@
       <div class="limit-info">
         <div id="limitNotice"></div>
         <div class="grid" style="margin-top:8px">
-          <div class="stat"><b id="today">0</b><span>Today (hits)</span></div>
-          <div class="stat"><b id="todayGrams">—</b><span>Today (g)</span></div>
-          <div class="stat"><b id="todayCost">—</b><span>Today's cost</span></div>
-          <div class="stat"><b id="currentGap">—</b><span>Since last</span></div>
-          <div class="stat"><b id="goalBankStat">—</b><span>Carried over</span></div>
+          <div class="stat"><span class="stat-l">Left today</span><b id="todayLeft">—</b><small class="stat-d" id="todayLeftNote">of your daily limit</small></div>
+          <div class="stat"><span class="stat-l">Used today</span><b id="todayUsed">0</b><small class="stat-d" id="todayUsedNote">—</small></div>
+          <div class="stat"><span class="stat-l">Extra from yesterday</span><b id="goalBankStat">—</b><small class="stat-d" id="bankNote">unused allowance, not weed</small></div>
+          <div class="stat"><span class="stat-l">Since last hit</span><b id="currentGap">—</b><small class="stat-d">awake time</small></div>
         </div>
       </div>
     </div>
@@ -727,12 +726,12 @@
   <div class="card">
     <h2>Weed left</h2>
     <div class="grid">
-      <div class="stat"><b id="stashGrams">—</b><span>Total on hand</span></div>
-      <div class="stat"><b id="stashNugs">—</b><span>Nugs (whole)</span></div>
-      <div class="stat"><b id="stashGround">—</b><span>Ground (ready)</span></div>
-      <div class="stat"><b id="stashHitsLeft">—</b><span>Hits remaining</span></div>
-      <div class="stat"><b id="stashPricePerG">—</b><span>Effective $/g</span></div>
-      <div class="stat"><b id="stashSpent">—</b><span>Total spent</span></div>
+      <div class="stat"><span class="stat-l">On hand</span><b id="stashGrams">—</b><small class="stat-d" id="stashLasts">nothing tracked yet</small></div>
+      <div class="stat"><span class="stat-l">Nugs (whole)</span><b id="stashNugs">—</b><small class="stat-d">not ground yet</small></div>
+      <div class="stat"><span class="stat-l">Ground (ready)</span><b id="stashGround">—</b><small class="stat-d">smoke this first</small></div>
+      <div class="stat"><span class="stat-l">Hits remaining</span><b id="stashHitsLeft">—</b><small class="stat-d">at your grams per hit</small></div>
+      <div class="stat"><span class="stat-l">Effective $/g</span><b id="stashPricePerG">—</b><small class="stat-d">what you actually paid</small></div>
+      <div class="stat"><span class="stat-l">Total spent</span><b id="stashSpent">—</b><small class="stat-d">all reups</small></div>
     </div>
 
     <div id="stashLowWarning" style="display:none;margin-top:8px;padding:8px;background:var(--surface2);border-left:4px solid var(--red);border-radius:6px;font-size:13px;color:var(--text)">
@@ -922,7 +921,7 @@
 
     <div class="pat-h">Gaps &amp; streaks</div>
     <div class="grid">
-      <div class="stat"><span class="stat-l">Longest gap</span><b id="longestGap">—</b><small class="stat-d">longest awake break between hits</small></div>
+      <div class="stat" id="longestGapStat"><span class="stat-l">Longest gap</span><b id="longestGap">—</b><small class="stat-d" id="longestGapNote">longest break between hits</small></div>
       <div class="stat"><span class="stat-l">Current streak</span><b id="streakCurrent">0</b><small class="stat-d">days in a row, still running</small></div>
       <div class="stat"><span class="stat-l">Longest streak</span><b id="streakLongest">0</b><small class="stat-d">days in a row with a hit</small></div>
     </div>
@@ -989,19 +988,25 @@
     <select id="setWarn"><option value="1">On</option><option value="0">Off</option></select>
     <label>Carry over unused allowance</label>
     <select id="setGoalBank"><option value="0">Off</option><option value="1">On</option></select>
-    <p class="tiny">When on, grams you don’t use each day are added to the next day’s allowance (capped at 2× your daily limit). The Today card shows this as “carried over”.</p>
+    <p class="tiny">When on, whatever you left unused yesterday is added to today’s allowance — never more than one extra day’s worth, and never more than the weed actually left on hand. It resets tomorrow.</p>
     <label>Default grams per hit (used when you don't enter an amount)</label>
     <input type="number" id="setDefaultGrams" min="0" step="0.01" style="max-width:120px" value="0.02">
     <p class="tiny">Since you don't know your hit count yet, the app estimates each hit at this weight. Adjust it as you learn your real per-hit amount. You can override per hit in “Add details”.</p>
+    <label>Default hit size</label>
+    <select id="setDefaultSize" onchange="setDefaultSize(this.value)">
+      <option>Small</option><option>Medium</option><option>Large</option>
+    </select>
+    <p class="tiny">Used when you tap Log a hit without opening Add details. If you only take small hits, set this to Small so your history is recorded the way you actually smoke.</p>
 
     
     <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Sleep window</h2>
     <label>Ignore overnight hours in gap averages</label>
     <select id="setSleepOn"><option value="0">Off</option><option value="1">On</option></select>
     <div class="chart-row" style="margin-top:6px">
-      <div><label>Asleep from</label><input type="time" id="setSleepStart" value="01:00"></div>
-      <div><label>Awake at</label><input type="time" id="setSleepEnd" value="10:00"></div>
+      <div><label>Asleep from</label><input type="time" id="setSleepStart" value="01:00" onchange="sleepTouched()"></div>
+      <div><label>Awake at</label><input type="time" id="setSleepEnd" value="10:00" onchange="sleepTouched()"></div>
     </div>
+    <p class="tiny" id="sleepPreview" style="margin-top:6px"></p>
     <p class="tiny">Time inside this window is skipped by "Since last", "Longest gap" and the average gap between hits, so a normal night doesn't read as a nine-hour break. Your hits are never changed.</p>
 
     <details class="set-adv">
@@ -1150,10 +1155,14 @@
   <div class="sheet">
     <button class="sheet-close" aria-label="Close" onclick="closeModal('editHitModal')">×</button>
     <h2>Edit hit</h2>
-    <p class="tiny">Fix what was recorded — the time stays the same.</p>
+    <p class="tiny">Fix what was recorded. Tick the box below if the time is a guess.</p>
     <input type="hidden" id="editHitId">
     <label>When</label>
     <input type="datetime-local" id="editHitTime">
+    <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
+      <input type="checkbox" id="editHitApprox" style="width:auto;margin:0">
+      <span>Time is a guess — leave it out of gap and hour stats</span>
+    </label>
     <div class="chart-row">
       <div><label>Device</label><select id="editHitDevice"></select></div>
       <div><label>Size</label><select id="editHitSize"></select></div>
@@ -1175,8 +1184,9 @@
     <h2>Count what's on hand</h2>
     <p class="tiny">Weigh the jar and put the real numbers here. The app replays everything after this moment from your count instead of from estimated hits — so the card starts telling the truth again.</p>
     <div class="chart-row">
-      <div><label>Total on hand (g)</label><input type="number" id="countTotal" step="0.01" min="0"></div>
-      <div><label>Of which ground (g)</label><input type="number" id="countGround" step="0.01" min="0"></div>
+      <div><label>Whole buds (g)</label><input type="number" id="countNugs" step="0.01" min="0" oninput="updateCountTotal()"></div>
+      <div><label>Already busted up / ground (g)</label><input type="number" id="countGround" step="0.01" min="0" oninput="updateCountTotal()"></div>
+      <p class="tiny" id="countTotalLine" style="margin-top:8px"></p>
     </div>
     <p class="tiny" id="countHint" style="margin-top:6px"></p>
     <button class="secondary" style="background:var(--green);color:#fff;width:100%;margin-top:10px" onclick="saveCount()">Save count</button>
@@ -1675,6 +1685,9 @@ function migrateEntry(x){
   return {
     id:           x.id != null ? x.id : (Date.now() + Math.random()),
     time:         x.time || new Date().toISOString(),
+    // A backfilled day has a made-up clock time (often 6pm). Keeping the flag
+    // lets totals use it while gap and by-hour stats ignore the fake hour.
+    approx:       !!x.approx,
     size:         x.size || "Medium",
     device:       x.device || "Other",
     note:         x.note || "",
@@ -2152,6 +2165,40 @@ function onDeviceChange(){
   saveSettingsObj();
   prefillDeviceAmount();
 }
+// Setting the hours is a clear sign you want the window used, so switch it on
+// and show the result on a real overnight gap rather than leaving a silent Off.
+function sleepTouched(){
+  const on = document.getElementById("setSleepOn");
+  if (on) on.value = "1";
+  settings.sleepEnabled = true;
+  saveSleepCfg();
+  renderSleepPreview();
+  renderAll();
+}
+function saveSleepCfg(){
+  settings.sleepStart = document.getElementById("setSleepStart").value || "01:00";
+  settings.sleepEnd = document.getElementById("setSleepEnd").value || "10:00";
+  saveSettingsObj();
+}
+function renderSleepPreview(){
+  const el = document.getElementById("sleepPreview");
+  if (!el) return;
+  const on = settings.sleepEnabled;
+  if (!on){
+    el.textContent = "Currently OFF, so a 7pm-to-9am break counts as a full 14h gap.";
+    return;
+  }
+  const d = new Date(); d.setHours(19,0,0,0);
+  const next = new Date(d); next.setDate(next.getDate()+1); next.setHours(9,0,0,0);
+  const awake = activeMs(d.getTime(), next.getTime());
+  el.textContent = `On. A 7pm-to-9am break counts as ${fmtDuration(awake)} instead of 14h.`;
+}
+function setDefaultSize(size){
+  settings.lastSize = size;
+  selectedSize = size;
+  renderSizeChips();
+  saveSettingsObj();
+}
 function setSize(size){
   selectedSize = size;
   settings.lastDetailsSize = size; // remember the panel's size across app restarts
@@ -2281,33 +2328,29 @@ function quickLog(i){
    6. LIMIT & REMINDERS
    =================================================================== */
 function todaysHits(){ const k=dayKey(new Date()); return log.filter(x=>dayKey(x.time)===k); }
-// #15: goal bank — unused daily allowance carries forward (capped at 2× limit)
+// Spare allowance: only *yesterday's* unused allowance carries into today.
+// The old version accumulated every day since your first entry, so after a few
+// light days it sat pinned at the 2x cap — showing "2g carried over" next to a
+// stash that had long since been smoked. Yesterday-only keeps it honest, and it
+// can never claim more than the weed actually left on hand.
 function computeGoalBank(){
   const limit = +settings.dailyLimit || 0;
   if (!limit || !settings.goalBankEnabled || !log.length) return 0;
   const isGrams = usingGrams();
-  const cap = limit * 2;
-  // Total each day once: the old version re-scanned the whole log for every
-  // day since your first entry, on every render.
-  const perDay = {};
-  log.forEach(x => {
-    const k = dayKey(x.time);
-    perDay[k] = (perDay[k] || 0) + (isGrams ? entryAmount(x) : 1);
-  });
-  const firstK = Object.keys(perDay).sort()[0];
-  const todayK = dayKey(new Date());
-  if (!firstK || firstK >= todayK) return 0;
-  let bank = 0;
-  const cur = new Date(firstK + "T12:00:00");
-  // setDate keeps the day counter aligned across DST changes; adding
-  // 86400000 ms drifts by an hour and can skip or repeat a day.
-  while (dayKey(cur) < todayK){
-    const used = perDay[dayKey(cur)] || 0;
-    bank = Math.max(0, bank + (limit - used));
-    if (bank > cap) bank = cap;
-    cur.setDate(cur.getDate() + 1);
+  const yKey = addDaysAgo(1);
+  const yLog = log.filter(x => dayKey(x.time) === yKey);
+  if (!yLog.length) return 0;           // nothing logged yesterday: no basis for spare
+  const usedYesterday = isGrams
+    ? yLog.reduce((sum,x)=>sum+entryAmount(x),0)
+    : yLog.length;
+  let bank = Math.min(limit, Math.max(0, limit - usedYesterday));   // at most one extra day
+  // You cannot have spare allowance worth more than the weed you still have.
+  const tracking = stash.length > 0 || bustups.length > 0;
+  if (tracking){
+    const onHand = stashBreakdown().totalOnHand;
+    if (bank > onHand) bank = Math.max(0, onHand);
   }
-  return bank;
+  return r4(bank);
 }
 function renderLimit(){
   const limit = +settings.dailyLimit || 0;
@@ -2326,6 +2369,14 @@ function renderLimit(){
     else if (!settings.goalBankEnabled) bankEl.textContent = "off";
     else bankEl.textContent = isGrams ? gramsFmt(bank) : bank;
   }
+  // Headline number for the card: what is actually left today.
+  const leftEl = document.getElementById("todayLeft");
+  if (leftEl){
+    const remainTxt = Math.max(0, effLimit - used);
+    leftEl.textContent = isGrams ? gramsFmt(remainTxt) : Math.floor(remainTxt);
+  }
+  const usedEl = document.getElementById("todayUsed");
+  if (usedEl) usedEl.textContent = usedTxt;
   if (limit <= 0){
     arc.setAttribute("stroke-dashoffset", C);
     arc.setAttribute("stroke","var(--muted2)");
@@ -2344,7 +2395,7 @@ function renderLimit(){
   // "goal" read like a target you had achieved. Headline = what's left,
   // detail = exactly where that number comes from.
   const limitLine = bank > 0
-    ? (isGrams ? `${gramsFmt(limit)} limit + ${gramsFmt(bank)} carried over` : `${limit} limit + ${bank} carried over`)
+    ? (isGrams ? `${gramsFmt(limit)} limit + ${gramsFmt(bank)} spare from yesterday` : `${limit} limit + ${bank} spare from yesterday`)
     : (isGrams ? `${gramsFmt(limit)} limit` : `${limit} hits`);
   const usedLine = isGrams
     ? (bank > 0 ? `${gramsFmt(used)} used of ${gramsFmt(effLimit)}` : `${gramsFmt(used)} used of ${gramsFmt(limit)} limit`)
@@ -2435,7 +2486,7 @@ function stashBreakdown(){
   // same instant: acquire first, then grind, then smoke
   events.sort((a,b) => (a.t - b.t) || (a.order - b.order));
 
-  let nugs = 0, ground = 0, fromGround = 0, fromNugs = 0;
+  let nugs = 0, ground = 0, fromGround = 0, shortfall = 0;
   events.forEach(e => {
     if (e.kind === "count"){
       ground = e.ground;
@@ -2449,16 +2500,18 @@ function stashBreakdown(){
       ground += e.amt;                 // trust the batch you actually ground
       return;
     }
-    const g = Math.min(ground, e.amt); // hits smoke the ground first...
+    // Hits only ever come out of the grinder. You cannot smoke a whole nug,
+    // so if the ground is short that is missing data (an unlogged bust-up),
+    // not permission to help yourself from the jar.
+    const g = Math.min(ground, e.amt);
     ground -= g; fromGround += g;
-    const n = Math.min(nugs, e.amt - g); // ...then the nugs, if any
-    nugs -= n; fromNugs += n;
+    if (e.amt - g > 0) shortfall += e.amt - g;
   });
 
   const nugsOnHand = Math.max(0, nugs);
   const groundReady = Math.max(0, ground);
   return { acquired: t.bought, given: t.given, net: t.net, busted, smoked,
-           smokedFromGround: fromGround, smokedFromNugs: fromNugs,
+           smokedFromGround: fromGround, smokedFromNugs: 0, shortfall,
            nugsOnHand, groundReady, totalOnHand: nugsOnHand + groundReady, spent: t.spent };
 }
 // Estimated hits remaining at default grams-per-hit
@@ -2537,6 +2590,28 @@ function renderStash(){
   setText("stashGrams", gramsFmt(b.totalOnHand));
   setText("stashNugs", gramsFmt(b.nugsOnHand));
   setText("stashGround", gramsFmt(b.groundReady));
+  // "How long will this last?" — the question the numbers alone never answer.
+  const lastsEl = document.getElementById("stashLasts");
+  if (lastsEl){
+    const onHand = b.totalOnHand;
+    // 30 days smooths out a quiet week; a 7-day window makes the estimate wild.
+    const perDay = settings.limitUnit === "grams"
+      ? gramsByDay(30).grams.reduce((a,c)=>a+c,0)/30
+      : countByDay(30).counts.reduce((a,c)=>a+c,0)/30;
+    if (onHand <= 0){
+      lastsEl.textContent = "nothing left";
+    } else if (perDay > 0 && settings.limitUnit === "grams"){
+      const days = onHand / perDay;
+      lastsEl.textContent = days < 1 ? "under a day at your recent rate"
+        : days > 400 ? "over a year at your recent rate"
+        : `about ${days < 10 ? days.toFixed(1) : Math.round(days)} days at your recent rate`;
+    } else if (perDay > 0){
+      const hits = Math.floor(onHand / Math.max(+settings.gramsPerHit || 0.02, 0.001));
+      lastsEl.textContent = `about ${hits} hit${hits===1?"":"s"} left`;
+    } else {
+      lastsEl.textContent = "no hits in the last week to estimate from";
+    }
+  }
   setText("stashPricePerG", ppg>0 ? money(ppg) : "—");
   setText("stashHitsLeft", b.totalOnHand > 0 ? hits : "—");
   setText("stashSpent", b.spent>0 ? money(b.spent) : "—");
@@ -2581,7 +2656,17 @@ function renderStash(){
   if (gEl){
     const gph = +settings.defaultGramsPerHit || 0.02;
     const almostOut = b.groundReady < gph * 3;
-    if (b.nugsOnHand > 0.05 && almostOut){
+    const tracking = stash.length > 0 || bustups.length > 0;
+    if (tracking && b.shortfall > 0.02){
+      // Missing ground beats "running low" — say the real thing.
+      const txt = `<b>${gramsFmt(b.shortfall)} of hits has no grind logged before it.</b>`
+        + (b.nugsOnHand > 0.05 ? ` You have ${gramsFmt(b.nugsOnHand)} in whole buds.` : "")
+        + " Either a grind was not logged, or the ground ran out.";
+      document.getElementById("groundNudgeText").innerHTML = txt + " Bust up " + bustupLabel() + "?";
+      const gb = document.getElementById("groundNudgeBtn");
+      if (gb) gb.innerHTML = '<svg class="ico-inline" aria-hidden="true"><use href="#ico-grind"/></svg>Bust up ' + bustupLabel();
+      gEl.style.display = "";
+    } else if (b.nugsOnHand > 0.05 && almostOut){
       const txt = b.groundReady <= 0
         ? `<b>Nothing ground.</b> You have ${gramsFmt(b.nugsOnHand)} in whole nugs.`
         : `<b>Running low on ground</b> — ${gramsFmt(b.groundReady)} left.`;
@@ -2610,7 +2695,7 @@ function renderStash(){
         `<div class="row-line"><span class="lbl">» Acquired (reups)</span><span class="val">${gramsFmt(b.acquired)}</span></div>` +
         (b.given > 0 ? `<div class="row-line"><span class="lbl">− Given away / sold</span><span class="val">${gramsFmt(b.given)}</span></div>` : "") +
         `<div class="row-line"><span class="lbl">− Busted up → ground</span><span class="val">${gramsFmt(b.busted)}</span></div>` +
-        (b.smokedFromNugs > 0 ? `<div class="row-line"><span class="lbl">− Smoked from whole nugs</span><span class="val">${gramsFmt(b.smokedFromNugs)}</span></div>` : "") +
+        (b.shortfall > 0.02 ? `<div class="row-line"><span class="lbl">Hits with no grind logged before them</span><span class="val">${gramsFmt(b.shortfall)}</span></div>` : "") +
         `<div class="row-line total"><span class="lbl">= Nugs on hand</span><span class="val">${gramsFmt(b.nugsOnHand)}</span></div>` +
         // Stage 2: ground weed (ready to smoke) — only when you actually grind
         (b.busted > 0 ?
@@ -2620,6 +2705,7 @@ function renderStash(){
           : "") +
         // Grand total
         `<div class="row-line total" style="border-top:2px solid var(--border2);margin-top:6px;padding-top:8px;font-size:16px"><span class="lbl">Total on hand</span><span class="val" style="font-size:18px">${gramsFmt(b.totalOnHand)}</span></div>` +
+        (b.shortfall > 0.02 ? `<div class="tiny" style="margin-top:6px">Those hits have no grind to come from, so they are left out of the ground count. If that is old history, add the grinds you did with “Mark bust-up”, or tap “Count it” once to set what you really have.</div>` : "") +
         (perHit ? `<div class="tiny" style="margin-top:6px">${perHit}</div>` : "");
     }
   }
@@ -2733,6 +2819,8 @@ function openHitEdit(id){
   document.getElementById("editHitNote").value = e.note || "";
   const d = new Date(e.time);
   const p2 = n => String(n).padStart(2, "0");
+  const apxEl = document.getElementById("editHitApprox");
+  if (apxEl) apxEl.checked = !!e.approx;
   document.getElementById("editHitTime").value =
     d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate())
     + "T" + p2(d.getHours()) + ":" + p2(d.getMinutes());
@@ -2750,6 +2838,8 @@ function saveHitEdit(){
   }
   const when = new Date(document.getElementById("editHitTime").value);
   if (!isNaN(when.getTime())) e.time = when.toISOString();
+  const apx = document.getElementById("editHitApprox");
+  if (apx) e.approx = !!apx.checked;
   e.device = document.getElementById("editHitDevice").value;
   e.size   = document.getElementById("editHitSize").value;
   const am = document.getElementById("editHitAmount").value;
@@ -2765,16 +2855,27 @@ function saveHitEdit(){
 /* --- Physical count: your scale beats the app's estimates --- */
 function openCount(){
   const b = stashBreakdown();
-  document.getElementById("countTotal").value = r4(b.totalOnHand).toFixed(2);
+  document.getElementById("countNugs").value = r4(b.nugsOnHand).toFixed(2);
   document.getElementById("countGround").value = r4(b.groundReady).toFixed(2);
+  updateCountTotal();
   document.getElementById("countHint").textContent = settings.inventoryFix
     ? "Last counted " + new Date(settings.inventoryFix.at).toLocaleString() + "."
     : "No count saved yet — the numbers above are the app's estimate.";
   openModal("countModal");
 }
+// The two numbers you can actually read off the scale. Total is just their sum,
+// so there is no way to enter a total and have ground subtracted from it.
+function updateCountTotal(){
+  const el = document.getElementById("countTotalLine");
+  if (!el) return;
+  const nugs = +document.getElementById("countNugs").value || 0;
+  const ground = +document.getElementById("countGround").value || 0;
+  el.textContent = `That is ${gramsFmt(nugs)} of buds plus ${gramsFmt(ground)} ground \u2192 ${gramsFmt(nugs + ground)} on hand.`;
+}
 function saveCount(){
-  const total = +document.getElementById("countTotal").value;
-  const ground = +document.getElementById("countGround").value;
+  const nugsIn = Math.max(0, +document.getElementById("countNugs").value || 0);
+  const ground = Math.max(0, +document.getElementById("countGround").value || 0);
+  const total = nugsIn + ground;
   if (isNaN(total) || total < 0){ toast("Enter the total grams on hand"); return; }
   if (isNaN(ground) || ground < 0){ toast("Enter the ground grams (0 is fine)"); return; }
   if (ground > total){ toast("Ground can't be more than the total"); return; }
@@ -3404,7 +3505,7 @@ function renderCharts(){
   }
   // by hour — follows the grams/hits setting instead of always counting hits
   const hourVals=Array(24).fill(0);
-  log.forEach(x=>{ hourVals[new Date(x.time).getHours()] += isGrams ? entryAmount(x) : 1; });
+  log.forEach(x=>{ if (x.approx) return; hourVals[new Date(x.time).getHours()] += isGrams ? entryAmount(x) : 1; });
   const hourLabels=hourVals.map((_,i)=>hourLabel(i));
   makeBarChart("hourChart",hourLabels,hourVals,"#26a69a",false,decimal);
   {
@@ -3424,12 +3525,22 @@ function renderCharts(){
   const dev={}; log.forEach(x=>{const d=x.device||"Unknown"; dev[d]=(dev[d]||0)+(isGrams?entryAmount(x):1);});
   const de=Object.entries(dev).sort((a,b)=>b[1]-a[1]);
   makeBarChart("deviceChart",de.map(x=>x[0]),de.map(x=>x[1]),"#5c6bc0",true,decimal);
-  setNote("noteDevice", de.length ? `${de[0][0]} leads with ${fmt(de[0][1])}${de.length>1?` · ${de.length} methods in use`:""}` : "No hits logged yet.");
+  {
+    const tot = de.reduce((a,x)=>a+x[1],0);
+    setNote("noteDevice", de.length && tot > 0
+      ? `${de[0][0]} is ${Math.round(de[0][1]/tot*100)}% of it (${fmt(de[0][1])})${de.length>1?` · ${de.length} methods in use`:""}`
+      : "No hits logged yet.");
+  }
   // by size
   const sz={}; log.forEach(x=>{const s=x.size||"Unknown"; sz[s]=(sz[s]||0)+(isGrams?entryAmount(x):1);});
   const se=Object.entries(sz).sort((a,b)=>b[1]-a[1]);
   makeBarChart("sizeChart",se.map(x=>x[0]),se.map(x=>x[1]),"#66bb6a",false,decimal);
-  setNote("noteSize", se.length ? `Most often ${se[0][0]} — ${fmt(se[0][1])}` : "No hits logged yet.");
+  {
+    const tot = se.reduce((a,x)=>a+x[1],0);
+    setNote("noteSize", se.length && tot > 0
+      ? `${se[0][0]} accounts for ${Math.round(se[0][1]/tot*100)}% (${fmt(se[0][1])})${se.length>1?` · sizes logged: ${se.map(x=>x[0]).join(", ")}`:""}`
+      : "No hits logged yet.");
+  }
 }
 
 /* ===================================================================
@@ -3489,7 +3600,14 @@ function renderInsights(){
   // average gap all-time
   const sorted=[...log].sort((a,b)=>new Date(a.time)-new Date(b.time));
   let avgGap=null;
-  if (sorted.length>1){ let s=0; for(let i=1;i<sorted.length;i++) s+=activeMs(+new Date(sorted[i-1].time), +new Date(sorted[i].time)); avgGap=s/(sorted.length-1); }
+  if (sorted.length>1){
+    let s=0, n=0;
+    for(let i=1;i<sorted.length;i++){
+      if (sorted[i-1].approx || sorted[i].approx) continue;
+      s += activeMs(+new Date(sorted[i-1].time), +new Date(sorted[i].time)); n++;
+    }
+    avgGap = n ? s/n : null;
+  }
   // Label, value, then a caption that says what the value actually counts.
   const cell=(l,v,d)=>`<div class="stat"><span class="stat-l">${l}</span><b>${v}</b>${d?`<small class="stat-d">${d}</small>`:""}</div>`;
   const n = log.length;
@@ -3743,10 +3861,13 @@ function openSettings(){
   document.getElementById("setLimit").value = settings.dailyLimit||0;
   document.getElementById("setWarn").value = settings.warnAt80?1:0;
   document.getElementById("setDefaultGrams").value = settings.defaultGramsPerHit||0.02;
+  const dsEl = document.getElementById("setDefaultSize");
+  if (dsEl) dsEl.value = settings.lastSize || "Medium";
   document.getElementById("setLowStash").value = settings.lowStashThreshold||7;
   document.getElementById("setSleepOn").value = settings.sleepEnabled?1:0;
   document.getElementById("setSleepStart").value = settings.sleepStart||"01:00";
   document.getElementById("setSleepEnd").value = settings.sleepEnd||"10:00";
+  renderSleepPreview();
   document.getElementById("setBustupGrams").value = bustupAmount();
   syncBustupPresetChips();
   document.getElementById("setCurrency").value = settings.currency;
@@ -3784,6 +3905,8 @@ function saveSettings(){
   settings.dailyLimit = +document.getElementById("setLimit").value||0;
   settings.warnAt80 = document.getElementById("setWarn").value==="1";
   settings.defaultGramsPerHit = +document.getElementById("setDefaultGrams").value||0.02;
+  const dsEl2 = document.getElementById("setDefaultSize");
+  if (dsEl2 && dsEl2.value) settings.lastSize = dsEl2.value;
   settings.currency = document.getElementById("setCurrency").value;
   refreshCurrencySymbols();
   document.getElementById("curSym").textContent = curSym();
@@ -4993,6 +5116,40 @@ function computeStreaks(){
   }
   return {current, longest};
 }
+// Sub-labels on the Today card, so no number is left unexplained.
+function renderTodayNotes(){
+  const limit = +settings.dailyLimit || 0;
+  const bank = computeGoalBank();
+  const isGrams = usingGrams();
+  const used = isGrams ? dayGrams(dayKey(new Date())) : todaysHits().length;
+  const hits = todaysHits().length;
+  const g = dayGrams(dayKey(new Date()));
+  const leftNote = document.getElementById("todayLeftNote");
+  if (leftNote){
+    if (!limit) leftNote.textContent = "no daily limit set";
+    else leftNote.textContent = "of " + (isGrams ? gramsFmt(limit + bank) : (limit + bank) + " hits") + " allowance";
+  }
+  const costToday = todaysHits().reduce((a,x)=>a+hitCost(x),0);
+  const usedNote = document.getElementById("todayUsedNote");
+  if (usedNote){
+    usedNote.textContent = isGrams
+      ? `${hits} hit${hits===1?"":"s"} · ${money(costToday)}`
+      : `${gramsFmt(g)} · ${money(costToday)}`;
+  }
+  const bankNote = document.getElementById("bankNote");
+  if (bankNote){
+    if (!settings.goalBankEnabled) bankNote.textContent = "turned off in Settings";
+    else if (bank > 0){
+      const yKey = addDaysAgo(1);
+      const yUsed = isGrams
+        ? log.filter(x=>dayKey(x.time)===yKey).reduce((a,x)=>a+entryAmount(x),0)
+        : log.filter(x=>dayKey(x.time)===yKey).length;
+      bankNote.textContent = `yesterday you used ${isGrams ? gramsFmt(yUsed) : yUsed + " hits"}`;
+    } else {
+      bankNote.textContent = "unused allowance, not weed";
+    }
+  }
+}
 function renderStreaks(){
   const s = computeStreaks();
   setText("streakCurrent", s.current);
@@ -5012,12 +5169,42 @@ function renderAll(){
   const sorted=[...log].sort((a,b)=>new Date(a.time)-new Date(b.time));
   const last=sorted[sorted.length-1];
   setText("currentGap", last?fmtDuration(activeMs(+new Date(last.time), Date.now())):"—");
-  let longest=null;
-  for(let i=1;i<sorted.length;i++){ const g=activeMs(+new Date(sorted[i-1].time), +new Date(sorted[i].time)); if(!longest||g>longest) longest=g; }
+  let longest=null, longestRaw=null, gapFrom=null, gapTo=null;
+  for(let i=1;i<sorted.length;i++){
+    // A guessed time cannot tell us how long a real break was, so skip those pairs.
+    if (sorted[i-1].approx || sorted[i].approx) continue;
+    const a=+new Date(sorted[i-1].time), b=+new Date(sorted[i].time);
+    const g=activeMs(a,b);
+    if(!longest||g>longest){ longest=g; longestRaw=b-a; gapFrom=sorted[i-1]; gapTo=sorted[i]; }
+  }
+  // Name the two hits behind the number, so a wrong timestamp can be spotted.
+  const shortTs = t => {
+    const d = new Date(t);
+    return d.toLocaleDateString(undefined,{day:"numeric",month:"short"}) + " "
+         + d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+  };
   setText("longestGap", fmtDuration(longest));
+  // If the break spans a day with no hits, say so. Otherwise 17h looks impossible
+  // on a 13-hour waking day and the number seems broken when it isn't.
+  const gapStat = document.getElementById("longestGapStat");
+  if (gapStat){
+    gapStat.style.cursor = gapFrom ? "pointer" : "";
+    gapStat.title = gapFrom ? "Tap to open that day" : "";
+    gapStat.onclick = gapFrom ? () => openDay(dayKey(gapFrom.time)) : null;
+  }
+  const gapNote = document.getElementById("longestGapNote");
+  if (gapNote){
+    if (longest == null) gapNote.textContent = "no two hits to compare yet";
+    else if (longestRaw > longest + 60000){
+      gapNote.textContent = `${shortTs(gapFrom.time)} → ${shortTs(gapTo.time)}, sleep removed`;
+    } else {
+      gapNote.textContent = "longest break between hits";
+    }
+  }
   renderStreaks();
 
   renderLimit();
+  renderTodayNotes();
   renderCostStats();
   renderStash();
   renderStrainOptions();
@@ -5179,8 +5366,14 @@ function runSelfTests(){
     log.push({id:"r5", time:iso(1), amount:1.0, device:"Pipe", size:"Medium", tags:[]});
     b = stashBreakdown();
     eq("pre-bust smoking does not shrink the batch", r4(b.groundReady), 1);
-    eq("nugs = 28 - 1.79 - 2", r4(b.nugsOnHand), 24.21);
-    eq("total still nets out", r4(b.totalOnHand), 25.21);
+    // Hits before any bust-up have nothing to draw from: they are missing data,
+    // not a withdrawal from the jar. Nugs only move when you grind or give away.
+    eq("nugs = 28 - 2 busted (hits never eat nugs)", r4(b.nugsOnHand), 26);
+    eq("hits with no grind logged are counted", r4(b.shortfall), 1.79);
+    eq("total = ground 1 + nugs 26", r4(b.totalOnHand), 27);
+    log.push({id:"r6", time:iso(0.5), amount:2.5, device:"Pipe", size:"Medium", tags:[]});
+    eq("a hit bigger than the ground left adds to it", r4(stashBreakdown().shortfall), 3.29);
+    log.pop();
 
     // A physical count overrides the estimate from that moment on.
     settings.inventoryFix = { at:iso(0), total:0.33, ground:0.33 };
@@ -5208,7 +5401,53 @@ function runSelfTests(){
     ok("PIN lockout escalates", pinLockSeconds(3) < pinLockSeconds(4) && pinLockSeconds(4) < pinLockSeconds(6));
     ok("PIN lockout caps at 15 min", pinLockSeconds(99) <= 900);
 
-    // Goal bank: unused allowance from past days, capped at 2x the limit
+    // ---- Maths audit: every chart must add up to the same pile ----
+    {
+      const now = Date.now(), D = 86400000;
+      const mk = (dayAgo, amt, dev, sz) => ({id:"m"+dayAgo+"_"+amt, time:new Date(now-dayAgo*D-3600000).toISOString(),
+        amount:amt, device:dev, size:sz, tags:[]});
+      log = [mk(30,0.3,"Pipe","Small"), mk(20,0.5,"Joint","Small"), mk(10,0.7,"Pipe","Medium"), mk(2,0.1,"Bong","Small")];
+      stash = []; bustups = []; settings.inventoryFix = null;
+      settings.limitUnit = "grams"; settings.defaultGramsPerHit = 0.02;
+      const totalG = log.reduce((a,x)=>a+entryAmount(x),0);
+      eq("entryAmount sums to 1.6g", r4(totalG), 1.6);
+
+      const bySize = {};
+      log.forEach(x => { const k = x.size||"Unknown"; bySize[k] = (bySize[k]||0) + entryAmount(x); });
+      eq("size buckets add up to the total", r4(Object.values(bySize).reduce((a,b)=>a+b,0)), 1.6);
+      eq("Small is 0.9g of it", r4(bySize.Small), 0.9);
+
+      const byHour = Array(24).fill(0);
+      log.forEach(x=>{ byHour[new Date(x.time).getHours()] += entryAmount(x); });
+      eq("hour buckets add up to the total", r4(byHour.reduce((a,b)=>a+b,0)), 1.6);
+
+      const byDow = Array(7).fill(0);
+      log.forEach(x=>{ byDow[new Date(x.time).getDay()] += entryAmount(x); });
+      eq("weekday buckets add up to the total", r4(byDow.reduce((a,b)=>a+b,0)), 1.6);
+
+      const byDev = {};
+      log.forEach(x=>{ const k = x.device||"Unknown"; byDev[k] = (byDev[k]||0) + entryAmount(x); });
+      eq("device buckets add up to the total", r4(Object.values(byDev).reduce((a,b)=>a+b,0)), 1.6);
+
+      const perDay = {};
+      log.forEach(x=>{ const k = dayKey(x.time); perDay[k] = (perDay[k]||0) + entryAmount(x); });
+      eq("day buckets add up to the total", r4(Object.values(perDay).reduce((a,b)=>a+b,0)), 1.6);
+
+      // a hit with no size recorded must not vanish from the chart
+      log.push({id:"mNoSize", time:new Date(now-86400000).toISOString(), amount:0.2, device:"Pipe", tags:[]});
+      const bySize2 = {};
+      log.forEach(x => { const k = x.size||"Unknown"; bySize2[k] = (bySize2[k]||0) + entryAmount(x); });
+      eq("unsized hits are still counted", r4(Object.values(bySize2).reduce((a,b)=>a+b,0)), 1.8);
+      log.pop();
+
+      // cost per hit must not drift from the grams it is based on
+      settings.pricePerGram = 10; settings.costPerSize = {Small:0, Medium:0, Large:0};
+      eq("cost of 0.3g at 10/g is 3.00", Math.round(hitCost(log[0])*100)/100, 3);
+      eq("summed cost matches summed grams x price",
+         Math.round(log.reduce((a,x)=>a+hitCost(x),0)*100)/100, 16);
+    }
+
+    // Spare allowance: only yesterday counts, and never more than one day's limit
     settings.dailyLimit = 1; settings.goalBankEnabled = true; settings.limitUnit = "grams";
     settings.pricePerGram = 0; settings.costPerSize = {Small:0, Medium:0, Large:0};
     stash = []; bustups = [];
@@ -5217,7 +5456,10 @@ function runSelfTests(){
       {id:"g2", time:new Date(Date.now() - 2*86400000).toISOString(), amount:1.0, device:"Pipe", size:"Medium", tags:[]},
       {id:"g3", time:new Date(Date.now() - 1*86400000).toISOString(), amount:0.2, device:"Pipe", size:"Medium", tags:[]}
     ];
-    eq("goal bank = 0.5 + 0 + 0.8", Math.round(computeGoalBank()*100)/100, 1.3);
+    eq("spare = yesterday's unused (1 - 0.2)", Math.round(computeGoalBank()*100)/100, 0.8);
+    log.unshift({id:"g0", time:new Date(Date.now() - 1*86400000 + 3600000).toISOString(), amount:1.0, device:"Pipe", size:"Medium", tags:[]});
+    eq("spare capped at one day's limit", Math.round(computeGoalBank()*100)/100, 0);
+    log.shift();
     settings.goalBankEnabled = false;
     eq("goal bank off = 0", computeGoalBank(), 0);
 
@@ -5236,7 +5478,13 @@ function runSelfTests(){
     eq("other devices unaffected", settings.deviceLastAmount.Pipe, undefined);
 
     // Sleep window: 01:00-10:00 must not count toward a gap.
-    settings.sleepEnabled = true; settings.sleepStart = "01:00"; settings.sleepEnd = "10:00";
+    settings.sleepEnabled = true; settings.sleepStart = "00:00"; settings.sleepEnd = "11:00";
+    const ov1 = new Date(2026,10,2,22,0).getTime(), ov2 = new Date(2026,10,3,15,22).getTime();
+    eq("overnight 17h gap minus 11h asleep = 6h22m", fmtDuration(activeMs(ov1, ov2)), "6h 22m");
+    const ov3 = new Date(2026,10,4,2,22).getTime();
+    eq("a break over a skipped day keeps only awake hours", fmtDuration(activeMs(ov1, ov3)), "15h 0m");
+    settings.sleepStart = "01:00"; settings.sleepEnd = "10:00";
+    eq("sleep window 1am-10am on the same break", fmtDuration(activeMs(ov1, ov2)), "8h 22m");
     const base = new Date(); base.setHours(0, 30, 0, 0);
     const after = new Date(base.getTime() + 10 * 3600 * 1000);   // 00:30 -> 10:30 = 10h
     eq("sleep hours excluded from a gap", Math.round(activeMs(base.getTime(), after.getTime()) / 3600000), 1);
