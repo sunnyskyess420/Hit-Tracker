@@ -255,6 +255,11 @@
   .cal-cell .cal-hits.sm{font-size:12px}
   .cal-caption{font-size:10px;color:var(--muted2);text-align:center;margin-top:6px}
   .day-headline{font-size:17px;font-weight:800;letter-spacing:.2px;margin:2px 0 2px}
+  /* Patterns: label on top, number big, plain-English caption underneath. */
+  .pat-scope{font-size:11px;color:var(--muted);margin:-4px 0 9px}
+  .pat-h{font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted2);font-weight:700;margin:16px 0 6px}
+  .stat .stat-l{display:block;font-size:9.5px;letter-spacing:.35px;text-transform:uppercase;color:var(--muted2);margin-bottom:3px;line-height:1.2}
+  .stat .stat-d{display:block;font-size:10px;color:var(--muted2);margin-top:3px;line-height:1.25}
   .day-headline.sm{display:block;font-size:13px;font-weight:700;color:var(--text);opacity:.9;margin:0}
   .day-foot{font-size:11px;color:var(--muted)}
   .cal-cell .cal-g{font-size:8px;font-weight:600;color:rgba(255,255,255,.8);line-height:1;margin-top:1px;text-shadow:0 1px 2px rgba(0,0,0,.4)}
@@ -891,22 +896,38 @@
 
   <div class="card">
     <h2>Patterns</h2>
+    <div class="pat-scope" id="patScope"></div>
+
     <div id="insights" class="grid"></div>
-    <div class="grid" style="margin-top:8px">
-      <div class="stat"><b id="weekAvg">0.0</b><span>7-day avg/day</span></div>
-      <div class="stat"><b id="monthTotal">0</b><span>30-day hits</span></div>
-      <div class="stat"><b id="weekGrams">—</b><span>This week (g)</span></div>
-      <div class="stat"><b id="monthGrams">—</b><span>This month (g)</span></div>
-      <div class="stat"><b id="weekCost">—</b><span>This week $</span></div>
-      <div class="stat"><b id="monthCost">—</b><span>This month $</span></div>
-      <div class="stat"><b id="allTimeGrams">—</b><span>All-time (g)</span></div>
-      <div class="stat"><b id="allTimeCost">—</b><span>All-time $</span></div>
-      <div class="stat"><b id="bustupsMonth">0</b><span>Bust-ups (mo)</span></div>
-      <div class="stat"><b id="bustupsAvg">—</b><span>Avg days between</span></div>
-      <div class="stat"><b id="yesterday">0</b><span>Yesterday</span></div>
-      <div class="stat"><b id="longestGap">—</b><span>Longest gap</span></div>
-      <div class="stat"><b id="streakCurrent">0</b><span>Current streak</span></div>
-      <div class="stat"><b id="streakLongest">0</b><span>Longest streak</span></div>
+
+    <div class="pat-h">Activity</div>
+    <div class="grid">
+      <div class="stat"><span class="stat-l">Hits per day</span><b id="weekAvg">0.0</b><small class="stat-d">average, last 7 days</small></div>
+      <div class="stat"><span class="stat-l">Hits, last 30 days</span><b id="monthTotal">0</b><small class="stat-d">rolling 30 days</small></div>
+      <div class="stat"><span class="stat-l">Hits yesterday</span><b id="yesterday">0</b><small class="stat-d">calendar day</small></div>
+    </div>
+
+    <div class="pat-h">Grams &amp; money</div>
+    <div class="grid">
+      <div class="stat"><span class="stat-l">Grams this week</span><b id="weekGrams">—</b><small class="stat-d">since Sunday</small></div>
+      <div class="stat"><span class="stat-l">Grams this month</span><b id="monthGrams">—</b><small class="stat-d">calendar month</small></div>
+      <div class="stat"><span class="stat-l">Grams all time</span><b id="allTimeGrams">—</b><small class="stat-d">every hit ever logged</small></div>
+      <div class="stat"><span class="stat-l">Spent this week</span><b id="weekCost">—</b><small class="stat-d">estimated, since Sunday</small></div>
+      <div class="stat"><span class="stat-l">Spent this month</span><b id="monthCost">—</b><small class="stat-d">estimated</small></div>
+      <div class="stat"><span class="stat-l">Spent all time</span><b id="allTimeCost">—</b><small class="stat-d">estimated</small></div>
+    </div>
+
+    <div class="pat-h">Bust-ups</div>
+    <div class="grid">
+      <div class="stat"><span class="stat-l">Bust-ups this month</span><b id="bustupsMonth">0</b><small class="stat-d">times you ground up</small></div>
+      <div class="stat"><span class="stat-l">Days between bust-ups</span><b id="bustupsAvg">—</b><small class="stat-d">average, last 60 days</small></div>
+    </div>
+
+    <div class="pat-h">Gaps &amp; streaks</div>
+    <div class="grid">
+      <div class="stat"><span class="stat-l">Longest gap</span><b id="longestGap">—</b><small class="stat-d">longest awake break between hits</small></div>
+      <div class="stat"><span class="stat-l">Current streak</span><b id="streakCurrent">0</b><small class="stat-d">days in a row, still running</small></div>
+      <div class="stat"><span class="stat-l">Longest streak</span><b id="streakLongest">0</b><small class="stat-d">days in a row with a hit</small></div>
     </div>
     <div id="budgetBar" style="display:none;margin-top:10px">
       <div class="tiny" id="budgetText"></div>
@@ -3418,14 +3439,43 @@ function renderInsights(){
   const sorted=[...log].sort((a,b)=>new Date(a.time)-new Date(b.time));
   let avgGap=null;
   if (sorted.length>1){ let s=0; for(let i=1;i<sorted.length;i++) s+=activeMs(+new Date(sorted[i-1].time), +new Date(sorted[i].time)); avgGap=s/(sorted.length-1); }
-  const cell=(l,v)=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`;
-  // Slimmed: only unique insights not shown elsewhere (no all-time grams/entries/cost — those live in stash/stats)
+  // Label, value, then a caption that says what the value actually counts.
+  const cell=(l,v,d)=>`<div class="stat"><span class="stat-l">${l}</span><b>${v}</b>${d?`<small class="stat-d">${d}</small>`:""}</div>`;
+  const n = log.length;
+  const share = c => n ? `${c} of ${n} hit${n===1?"":"s"} (${Math.round(c/n*100)}%)` : "";
+  const strainHits = topStrain
+    ? log.filter(x => x.strain === topStrain[0]).length : 0;
+
+  // Say which slice of history these numbers cover, so "busiest hour" isn't a mystery.
+  const scopeEl = document.getElementById("patScope");
+  if (scopeEl){
+    if (!n){
+      scopeEl.textContent = "No hits logged yet — these fill in as you log.";
+    } else {
+      const ts = log.map(x=>+new Date(x.time)).sort((a,b)=>a-b);
+      const f = t => new Date(t).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
+      const sameDay = dayKey(new Date(ts[0])) === dayKey(new Date(ts[ts.length-1]));
+      const range = sameDay ? f(ts[0]) : `${f(ts[0])} – ${f(ts[ts.length-1])}`;
+      scopeEl.textContent = `Across all ${n} hit${n===1?"":"s"} · ${range}`;
+    }
+  }
+
   document.getElementById("insights").innerHTML =
-    cell("Busiest hour", log.length?hourLabel(busiest):"—")+
-    cell("Most-used method", topDev?`${topDev[0]} (${topDev[1]})`:"—")+
-    cell("Most common size", topSz?`${topSz[0]} (${topSz[1]})`:"—")+
-    cell("Avg gap between hits", avgGap!=null?fmtDuration(avgGap):"—")+
-    cell("Top strain", topStrain?`${topStrain[0]} (${gramsFmt(topStrain[1])})`:"—");
+    cell("Busiest hour", n?hourRange(busiest):"—", n?share(hourCounts[busiest]):"")+
+    cell("Most-used method", topDev?topDev[0]:"—", topDev?share(topDev[1]):"")+
+    cell("Most common size", topSz?topSz[0]:"—", topSz?share(topSz[1]):"")+
+    cell("Avg gap between hits", avgGap!=null?fmtDuration(avgGap):"—", "awake time, sleep excluded")+
+    cell("Top strain", topStrain?topStrain[0]:"—", topStrain?`${gramsFmt(topStrain[1])} over ${strainHits} hit${strainHits===1?"":"s"}`:"");
+}
+// "7 PM - 8 PM" reads better than "7p" when the label is a whole hour bucket.
+function hourRange(h){
+  const hh = ((h % 24) + 24) % 24, nx = (hh + 1) % 24;
+  const num = x => x % 12 === 0 ? 12 : x % 12;
+  const ap  = x => x < 12 ? "AM" : "PM";
+  // "9–10 AM" when both hours share a meridiem, "11 AM–12 PM" when they don't.
+  return ap(hh) === ap(nx)
+    ? `${num(hh)}–${num(nx)} ${ap(hh)}`
+    : `${num(hh)} ${ap(hh)}–${num(nx)} ${ap(nx)}`;
 }
 function renderCorrelations(){
   // Compare check-in averages on higher-use vs lower-use days (last 30 days).
