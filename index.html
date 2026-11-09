@@ -247,6 +247,10 @@
   .cal-cell .cal-x{position:absolute;top:1px;right:2px;color:#fff;filter:drop-shadow(0 0 2px #000);z-index:2;line-height:1}
   .cal-cell .cal-reup{position:absolute;top:1px;left:2px;color:#b39ddb;filter:drop-shadow(0 0 2px #000);z-index:2;line-height:1}
   .cal-cell .cal-x svg,.cal-cell .cal-reup svg{width:13px;height:13px;display:block}
+  .cal-cell .cal-vape,.cal-cell .cal-conc{position:absolute;bottom:1px;z-index:2;line-height:0;filter:drop-shadow(0 0 2px #000)}
+  .cal-cell .cal-vape{left:2px;color:#4dd0c4}
+  .cal-cell .cal-conc{right:2px;color:#ffb74d}
+  .cal-cell .cal-vape svg,.cal-cell .cal-conc svg{width:11px;height:11px;display:block}
   /* Hit leaves — small 🌿 icons, one per hit, wrapped to fill the cell */
   .cal-cell{flex-direction:column;gap:0}
   .cal-cell .n{font-size:11px;color:var(--muted);line-height:1}
@@ -548,6 +552,14 @@
       <rect x="8.4" y="5.4" width="7.2" height="2.8" rx="1.2"/>
       <path d="M12 12.5v4.2M9.9 14.6h4.2"/>
     </symbol>
+    <symbol id="ico-vape" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="8.4" y="6" width="7.2" height="14" rx="2"/>
+      <path d="M10.6 9.4h2.8"/>
+      <path d="M12 3.2v1.8"/>
+    </symbol>
+    <symbol id="ico-conc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3.6c3.2 3.6 5 6.2 5 8.7a5 5 0 0 1-10 0c0-2.5 1.8-5.1 5-8.7z"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -761,8 +773,13 @@
       <div class="stat"><span class="stat-l">Concentrate used</span><b id="concUsed">—</b><small class="stat-d">since you counted</small></div>
     </div>
     <div class="row" style="margin-top:8px">
+      <button class="secondary" onclick="openOtherReup('vape')">Reup vape</button>
+      <button class="secondary" onclick="openOtherReup('conc')">Reup concentrate</button>
+    </div>
+    <div class="row" style="margin-top:8px">
       <button class="secondary" onclick="openOtherStash()">Set vape / concentrate</button>
     </div>
+    <p class="tiny" id="otherMoney" style="margin-top:6px"></p>
 
     <!-- Clear breakdown of the math -->
     <div id="weedMath" class="weed-math"></div>
@@ -801,6 +818,8 @@
       <span><i class="cal-tier-4"></i> <b id="lg4"></b></span>
       <span><svg class="ico-inline" style="color:#fff" aria-hidden="true"><use href="#ico-grind"/></svg>bust-up</span>
       <span><svg class="ico-inline" style="color:#b39ddb" aria-hidden="true"><use href="#ico-reup"/></svg>reup</span>
+      <span><svg class="ico-inline" style="color:#4dd0c4" aria-hidden="true"><use href="#ico-vape"/></svg>vape</span>
+      <span><svg class="ico-inline" style="color:#ffb74d" aria-hidden="true"><use href="#ico-conc"/></svg>concentrate</span>
     </div>
     <div class="cal-caption">Big number = hits that day · colour = grams used</div>
     <div class="cal-month-total" id="calMonthTotal"></div>
@@ -1188,6 +1207,20 @@
   </div>
 </div>
 
+<!-- ===== VAPE / CONCENTRATE REUP ===== -->
+<div id="otherReupModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Add vape or concentrate" onclick="if(event.target===this)closeModal('otherReupModal')">
+  <div class="sheet">
+    <button class="sheet-close" aria-label="Close" onclick="closeModal('otherReupModal')">×</button>
+    <h2 id="otherReupTitle">Add vape</h2>
+    <div class="chart-row">
+      <div><label>Grams</label><input type="number" id="otherReupGrams" step="0.01" min="0" placeholder="0.5"></div>
+      <div><label>Paid (<span class="curSym">$</span>)</label><input type="number" id="otherReupPrice" step="0.01" min="0" placeholder="optional"></div>
+    </div>
+    <p class="tiny" id="otherReupLine" style="margin-top:8px"></p>
+    <button class="secondary" style="background:var(--green);color:#fff;width:100%;margin-top:12px" onclick="saveOtherReup()">Add it</button>
+  </div>
+</div>
+
 <!-- ===== VAPE / CONCENTRATE MODAL ===== -->
 <div id="otherModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Vape and concentrate" onclick="if(event.target===this)closeModal('otherModal')">
   <div class="sheet">
@@ -1384,8 +1417,10 @@ function defaultSettings(){
     lastWeighPrompt: null,  // day key we last asked for a weigh-in
     vapeOnHand: null,      // grams of vape counted, null = never counted
     vapeAt: null,          // when it was counted; hits after this come off it
+    vapeReups: [],         // [{at, g, price}] so spend and $/g can be worked out
     concOnHand: null,      // grams of concentrate counted
     concAt: null,
+    concReups: [],
     sleepEnabled: false,    // exclude a nightly window from gap averages
     sleepStart: "01:00",    // "HH:MM" local
     sleepEnd: "10:00",
@@ -1626,6 +1661,10 @@ function loadAll(){
   settings.concOnHand = numOrNullPos(settings.concOnHand);
   settings.vapeAt = settings.vapeAt && !isNaN(+new Date(settings.vapeAt)) ? settings.vapeAt : null;
   settings.concAt = settings.concAt && !isNaN(+new Date(settings.concAt)) ? settings.concAt : null;
+  const cleanReups = a => Array.isArray(a) ? a.filter(r => r && !isNaN(+new Date(r.at)) && +r.g > 0)
+      .map(r => ({at:r.at, g:+r.g, price:Math.max(0, +r.price || 0)})) : [];
+  settings.vapeReups = cleanReups(settings.vapeReups);
+  settings.concReups = cleanReups(settings.concReups);
   settings.sleepEnabled = !!settings.sleepEnabled;
   settings.sleepStart = /^\d{1,2}:\d{2}$/.test(settings.sleepStart) ? settings.sleepStart : "01:00";
   settings.sleepEnd = /^\d{1,2}:\d{2}$/.test(settings.sleepEnd) ? settings.sleepEnd : "10:00";
@@ -3287,6 +3326,10 @@ function calRender(){
   const reupDays = {};
   let monthReupGrams = 0;
   stash.forEach(s=>{ if (s.type !== "giveaway"){ const k = dayKey(s.date); if (k.startsWith(`${y}-${String(m+1).padStart(2,"0")}-`)){ reupDays[k] = (reupDays[k]||0) + (+s.amount||0); monthReupGrams += +s.amount||0; } } });
+  // Vape and concentrate reups get their own corner markers.
+  const vapeDays = {}, concDays = {};
+  (settings.vapeReups || []).forEach(r => { const k = dayKey(r.at); if (k.startsWith(`${y}-${String(m+1).padStart(2,"0")}-`)) vapeDays[k] = true; });
+  (settings.concReups || []).forEach(r => { const k = dayKey(r.at); if (k.startsWith(`${y}-${String(m+1).padStart(2,"0")}-`)) concDays[k] = true; });
   let html="";
   for (let i=0;i<firstDow;i++) html+=`<div class="cal-cell blank"></div>`;
   const todayK = dayKey(new Date());
@@ -3309,7 +3352,7 @@ function calRender(){
         + (isGrams ? `<span class="cal-g">${gramsFmt(v.grams)}</span>` : "")
       : "";
     const cellTitle = show ? `${hitsWord} \u00b7 ${gramsFmt(v.grams)}` : "No hits";
-    html+=`<div class="cal-cell cal-tier-${tier} ${k===todayK?"today":""}" title="${cellTitle}" aria-label="${d}: ${cellTitle}" onclick="openDay('${k}')" oncontextmenu="event.preventDefault();openReupEditor('${k}')"><span class="n">${d}</span>${countHtml}${hasBustup?`<span class="cal-x"><svg aria-hidden="true"><use href="#ico-grind"/></svg></span>`:""}${hasReup?`<span class="cal-reup"><svg aria-hidden="true"><use href="#ico-reup"/></svg></span>`:""}</div>`;
+    html+=`<div class="cal-cell cal-tier-${tier} ${k===todayK?"today":""}" title="${cellTitle}" aria-label="${d}: ${cellTitle}" onclick="openDay('${k}')" oncontextmenu="event.preventDefault();openReupEditor('${k}')"><span class="n">${d}</span>${countHtml}${hasBustup?`<span class="cal-x"><svg aria-hidden="true"><use href="#ico-grind"/></svg></span>`:""}${hasReup?`<span class="cal-reup"><svg aria-hidden="true"><use href="#ico-reup"/></svg></span>`:""}${vapeDays[k]?`<span class="cal-vape"><svg aria-hidden="true"><use href="#ico-vape"/></svg></span>`:""}${concDays[k]?`<span class="cal-conc"><svg aria-hidden="true"><use href="#ico-conc"/></svg></span>`:""}</div>`;
   }
   document.getElementById("calGrid").innerHTML = html;
   const bustupTxt = monthBustups>0 ? ` • ${monthBustups} bust-up${monthBustups===1?"":"s"}` : "";
@@ -5167,6 +5210,7 @@ function otherLeft(kind){
   if (on == null) return null;
   return Math.max(0, on - otherKindUsed(kind, at));
 }
+let otherReupKind = "vape";
 function renderOtherStash(){
   const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
   const vape = otherLeft("vape"), conc = otherLeft("conc");
@@ -5178,6 +5222,54 @@ function renderOtherStash(){
       : (conc <= 0 ? "empty — time to reup" : `counted ${gramsFmt(settings.concOnHand)}`));
   set("vapeUsed", gramsFmt(otherKindUsed("vape", settings.vapeAt)));
   set("concUsed", gramsFmt(otherKindUsed("conc", settings.concAt)));
+  const moneyEl = document.getElementById("otherMoney");
+  if (moneyEl){
+    const parts = [];
+    [["vape","vape"],["conc","concentrate"]].forEach(([k,label]) => {
+      const spent = otherSpent(k), bought = otherBought(k);
+      if (spent > 0 || bought > 0){
+        parts.push(`${label}: ${money(spent)} for ${gramsFmt(bought)}`
+          + (bought > 0 ? ` (${money(spent/bought)}/g)` : ""));
+      }
+    });
+    moneyEl.textContent = parts.length ? parts.join(" · ") : "No vape or concentrate purchases recorded yet.";
+  }
+}
+function otherReups(kind){ return kind === "vape" ? settings.vapeReups : settings.concReups; }
+function otherSpent(kind){ return otherReups(kind).reduce((a,r)=>a + (+r.price || 0), 0); }
+function otherBought(kind){ return otherReups(kind).reduce((a,r)=>a + (+r.g || 0), 0); }
+function openOtherReup(kind){
+  otherReupKind = kind;
+  document.getElementById("otherReupTitle").textContent = kind === "vape" ? "Add vape" : "Add concentrate";
+  document.getElementById("otherReupGrams").value = "";
+  document.getElementById("otherReupPrice").value = "";
+  const spent = otherSpent(kind), bought = otherBought(kind);
+  document.getElementById("otherReupLine").textContent = bought
+    ? `So far: ${gramsFmt(bought)} for ${money(spent)} (${money(spent/bought)}/g).`
+    : "Put what you bought and what it cost, so the price per gram can be worked out.";
+  openModal("otherReupModal");
+}
+function saveOtherReup(){
+  const g = +document.getElementById("otherReupGrams").value;
+  const price = Math.max(0, +document.getElementById("otherReupPrice").value || 0);
+  if (!(g > 0)){ toast("Enter the grams you got"); return; }
+  const now = new Date().toISOString();
+  // Add to what is actually left, not to the last number you typed — otherwise
+  // everything you smoked since the last count reappears when you reup.
+  const left = otherLeft(otherReupKind) || 0;
+  if (otherReupKind === "vape"){
+    settings.vapeReups.push({at:now, g:g, price:price});
+    settings.vapeOnHand = r4(left + g);
+    settings.vapeAt = now;
+  } else {
+    settings.concReups.push({at:now, g:g, price:price});
+    settings.concOnHand = r4(left + g);
+    settings.concAt = now;
+  }
+  saveSettingsObj();
+  closeModal("otherReupModal");
+  renderAll();
+  toast(`Added ${gramsFmt(g)} of ${otherReupKind === "vape" ? "vape" : "concentrate"}`);
 }
 function openOtherStash(){
   document.getElementById("otherVape").value = settings.vapeOnHand == null ? "" : settings.vapeOnHand;
