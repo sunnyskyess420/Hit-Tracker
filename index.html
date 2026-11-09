@@ -921,7 +921,7 @@
 
     <div class="pat-h">Gaps &amp; streaks</div>
     <div class="grid">
-      <div class="stat"><span class="stat-l">Longest gap</span><b id="longestGap">—</b><small class="stat-d" id="longestGapNote">longest break between hits</small></div>
+      <div class="stat" id="longestGapStat"><span class="stat-l">Longest gap</span><b id="longestGap">—</b><small class="stat-d" id="longestGapNote">longest break between hits</small></div>
       <div class="stat"><span class="stat-l">Current streak</span><b id="streakCurrent">0</b><small class="stat-d">days in a row, still running</small></div>
       <div class="stat"><span class="stat-l">Longest streak</span><b id="streakLongest">0</b><small class="stat-d">days in a row with a hit</small></div>
     </div>
@@ -5151,20 +5151,32 @@ function renderAll(){
   const sorted=[...log].sort((a,b)=>new Date(a.time)-new Date(b.time));
   const last=sorted[sorted.length-1];
   setText("currentGap", last?fmtDuration(activeMs(+new Date(last.time), Date.now())):"—");
-  let longest=null, longestRaw=null;
+  let longest=null, longestRaw=null, gapFrom=null, gapTo=null;
   for(let i=1;i<sorted.length;i++){
     const a=+new Date(sorted[i-1].time), b=+new Date(sorted[i].time);
     const g=activeMs(a,b);
-    if(!longest||g>longest){ longest=g; longestRaw=b-a; }
+    if(!longest||g>longest){ longest=g; longestRaw=b-a; gapFrom=sorted[i-1]; gapTo=sorted[i]; }
   }
+  // Name the two hits behind the number, so a wrong timestamp can be spotted.
+  const shortTs = t => {
+    const d = new Date(t);
+    return d.toLocaleDateString(undefined,{day:"numeric",month:"short"}) + " "
+         + d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+  };
   setText("longestGap", fmtDuration(longest));
   // If the break spans a day with no hits, say so. Otherwise 17h looks impossible
   // on a 13-hour waking day and the number seems broken when it isn't.
+  const gapStat = document.getElementById("longestGapStat");
+  if (gapStat){
+    gapStat.style.cursor = gapFrom ? "pointer" : "";
+    gapStat.title = gapFrom ? "Tap to open that day" : "";
+    gapStat.onclick = gapFrom ? () => openDay(dayKey(gapFrom.time)) : null;
+  }
   const gapNote = document.getElementById("longestGapNote");
   if (gapNote){
     if (longest == null) gapNote.textContent = "no two hits to compare yet";
     else if (longestRaw > longest + 60000){
-      gapNote.textContent = `${fmtDuration(longestRaw)} apart on the clock, sleep removed`;
+      gapNote.textContent = `${shortTs(gapFrom.time)} → ${shortTs(gapTo.time)}, sleep removed`;
     } else {
       gapNote.textContent = "longest break between hits";
     }
