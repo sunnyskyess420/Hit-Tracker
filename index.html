@@ -254,6 +254,9 @@
   .cal-cell .cal-hits{font-size:16px;font-weight:800;line-height:1.05;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45)}
   .cal-cell .cal-hits.sm{font-size:12px}
   .cal-caption{font-size:10px;color:var(--muted2);text-align:center;margin-top:6px}
+  .day-headline{font-size:17px;font-weight:800;letter-spacing:.2px;margin:2px 0 2px}
+  .day-headline.sm{display:block;font-size:13px;font-weight:700;color:var(--text);opacity:.9;margin:0}
+  .day-foot{font-size:11px;color:var(--muted)}
   .cal-cell .cal-g{font-size:8px;font-weight:600;color:rgba(255,255,255,.8);line-height:1;margin-top:1px;text-shadow:0 1px 2px rgba(0,0,0,.4)}
   /* Empty days stay quiet so the days you used pop */
   .cal-cell:not(.cal-tier-1):not(.cal-tier-2):not(.cal-tier-3):not(.cal-tier-4) .n{opacity:.62}
@@ -275,6 +278,14 @@
   .search-row input{flex:1;min-width:140px}
   .entry{display:flex;justify-content:space-between;gap:8px;background:var(--surface2);padding:9px 11px;border-radius:10px;margin-bottom:7px;font-size:13px;align-items:flex-start}
   .entry .meta{flex:1;min-width:0}
+/* Time and grams are the two things you scan for, so they get the top row
+   and real weight instead of sitting inside a muted run-on line. */
+.entry .entry-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.entry .entry-time{font-weight:600}
+.entry .entry-g{font-weight:800;font-size:14px;color:var(--text);white-space:nowrap}
+.entry .entry-acts{display:flex;gap:2px;flex:0 0 auto}
+.entry .entry-what{color:var(--muted);display:block;margin-top:2px;font-size:12px}
+.entry .entry-note{color:var(--text);opacity:.85;display:block;margin-top:3px;font-size:12px;word-break:break-word}
   .entry b{font-weight:600}
   .entry small{color:var(--muted);display:block;margin-top:2px;word-break:break-word}
   .entry .tagline{margin-top:3px}
@@ -287,7 +298,8 @@
   .day-picker{flex:1 1 120px;min-width:0;padding:7px 8px;font-size:13px;background:var(--surface2);color:var(--text);border:1px solid var(--border2);border-radius:8px}
   .day-btn:disabled{opacity:.4;cursor:not-allowed}
   .day-picker:disabled{opacity:.4}
-  .day-header{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 2px 10px;border-bottom:1px solid var(--border);margin-bottom:8px}
+  .day-header{display:block;padding:6px 2px 10px;border-bottom:1px solid var(--border);margin-bottom:8px}
+  .day-header-top{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
   .day-header b{font-size:14px}
   .day-header .tiny{color:var(--muted)}
 
@@ -809,9 +821,11 @@
       <button class="secondary day-btn" onclick="entriesToday()">Today</button>
     </div>
     <div class="day-header">
-      <b id="entriesDayTitle">—</b>
-      <span class="tiny" id="entriesDaySummary"></span>
-      <span class="tiny" id="entriesNavInfo" style="margin-left:auto;color:var(--muted)"></span>
+      <div class="day-header-top">
+        <b id="entriesDayTitle">—</b>
+        <span class="tiny" id="entriesNavInfo" style="margin-left:auto;color:var(--muted)"></span>
+      </div>
+      <span class="day-headline sm" id="entriesDaySummary"></span>
     </div>
 
     <div id="entries"></div>
@@ -3162,13 +3176,20 @@ function openDay(k){
   document.getElementById("dayModalTitle").textContent = new Date(k+"T12:00:00").toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric",year:"numeric"});
   const dayG = dayEntries.reduce((s,x)=>s+entryAmount(x),0);
   const dayReupG = dayReups.reduce((s,r)=>s+(+r.amount||0),0);
-  let html = `<div class="grid" style="margin-bottom:10px">
-    <div class="stat"><b>${dayEntries.length}</b><span>hits</span></div>
-    <div class="stat"><b>${gramsFmt(dayG)}</b><span>grams smoked</span></div>
-    <div class="stat"><b>${dayBustups.length}</b><span>bust-ups</span></div>
-    <div class="stat"><b>${dayReups.length}</b><span>reups</span></div>
-    <div class="stat"><b>${money(dayEntries.reduce((s,x)=>s+hitCost(x),0))}</b><span>est. cost</span></div>
-  </div>`;
+  // One headline instead of five boxes: the count and the grams are the answer,
+  // everything else is a footnote. Singular/plural matters here ("1 hit").
+  const dayCost = dayEntries.reduce((s,x)=>s+hitCost(x),0);
+  const headBits = [];
+  headBits.push(`${dayEntries.length} hit${dayEntries.length===1?"":"s"}`);
+  headBits.push(gramsFmt(dayG));
+  if (dayCost) headBits.push(money(dayCost));
+  const footBits = [];
+  if (dayBustups.length) footBits.push(`${dayBustups.length} bust-up${dayBustups.length===1?"":"s"}`);
+  if (dayReups.length) footBits.push(`${dayReups.length} reup${dayReups.length===1?"":"s"}`);
+  if (ci) footBits.push("check-in logged");
+  let html = `<div class="day-headline">${headBits.join(" · ")}</div>`
+    + (footBits.length ? `<div class="day-foot">${footBits.join(" · ")}</div>` : "")
+    + `<div style="height:10px"></div>`;
   // Reup section
   if (dayReups.length){
     html += dayReups.map(r=>{
@@ -3232,11 +3253,15 @@ function openDay(k){
       if (x.social) extras.push(x.social);
       const tagline = (x.tags||[]).map(t=>`<i>${esc(t)}</i>`).join("");
       return `<div class="entry"><div class="meta">
-        <b>${d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</b> • ${esc(x.size)} • ${esc(x.device)} • ${gramsFmt(entryAmount(x))}${hitCost(x)?` • ${money(hitCost(x))}`:""}
-        <small>${esc(x.note)||"<span class='muted'>no note</span>"}</small>
-        ${extras.length?`<small class="muted">${esc(extras.join(" • "))}</small>`:""}
+        <div class="entry-top">
+          <span class="entry-time">${d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</span>
+          <span class="entry-g">${gramsFmt(entryAmount(x))}</span>
+        </div>
+        <small class="entry-what">${esc(x.device)} · ${esc(x.size)}${hitCost(x)?` · ${money(hitCost(x))}`:""}</small>
+        ${x.note?`<span class="entry-note">${esc(x.note)}</span>`:""}
+        ${extras.length?`<small class="muted">${esc(extras.join(" · "))}</small>`:""}
         ${tagline?`<div class="tagline">${tagline}</div>`:""}
-      </div><button class="del-btn" style="color:var(--muted)" onclick="openHitEdit('${x.id}')" aria-label="Edit hit">✎</button><button onclick="deleteEntry('${x.id}');openDay('${k}')">•</button></div>`;
+      </div><div class="entry-acts"><button class="del-btn" style="color:var(--muted)" onclick="openHitEdit('${x.id}')" aria-label="Edit hit">✎</button><button class="del-btn" onclick="deleteEntry('${x.id}');openDay('${k}')" aria-label="Delete hit">✕</button></div></div>`;
     }).join("");
   }
   document.getElementById("dayModalBody").innerHTML = html;
@@ -3575,7 +3600,7 @@ function renderEntries(){
   setHeader(
     dDate.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric", year:"numeric"}) + (isToday ? " · today" : ""),
     dayEntries.length
-      ? `${dayEntries.length} ${dayEntries.length===1?"hit":"hits"} • ${gramsFmt(dayG)}${dayCost?` • ${money(dayCost)}`:""}`
+      ? `${dayEntries.length} ${dayEntries.length===1?"hit":"hits"} · ${gramsFmt(dayG)}${dayCost?` · ${money(dayCost)}`:""}`
       : "no entries on this day",
     idx >= 0 ? `Day ${idx+1} of ${days.length}` : `${days.length} ${days.length===1?"day has":"days have"} hits`
   );
@@ -3597,11 +3622,15 @@ function renderEntries(){
     if (x.social) extras.push(x.social);
     const tagline=(x.tags||[]).map(t=>{const c=tagColor(t);return `<i style="background:${c}22;color:${c};border:1px solid ${c}55">${esc(t)}</i>`;}).join("");
     return `<div class="entry"><div class="meta">
-      <b>${d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})}</b>
-      <small>${esc(x.size)} • ${esc(x.device)} • ${gramsFmt(entryAmount(x))}${hitCost(x)?` • ${money(hitCost(x))}`:""}${x.note?` • ${esc(x.note)}`:""}</small>
-      ${extras.length?`<small class="muted">${esc(extras.join(" • "))}</small>`:""}
+      <div class="entry-top">
+        <span class="entry-time">${d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})}</span>
+        <span class="entry-g">${gramsFmt(entryAmount(x))}</span>
+      </div>
+      <small class="entry-what">${esc(x.device)} · ${esc(x.size)}${hitCost(x)?` · ${money(hitCost(x))}`:""}</small>
+      ${x.note?`<span class="entry-note">${esc(x.note)}</span>`:""}
+      ${extras.length?`<small class="muted">${esc(extras.join(" · "))}</small>`:""}
       ${tagline?`<div class="tagline">${tagline}</div>`:""}
-    </div><button class="del-btn" style="color:var(--muted)" onclick="openHitEdit('${x.id}')" aria-label="Edit hit">✎</button><button class="del-btn" onclick="deleteEntry('${x.id}')" aria-label="Delete hit">✕</button></div>`;
+    </div><div class="entry-acts"><button class="del-btn" style="color:var(--muted)" onclick="openHitEdit('${x.id}')" aria-label="Edit hit">✎</button><button class="del-btn" onclick="deleteEntry('${x.id}')" aria-label="Delete hit">✕</button></div></div>`;
   }).join("");
 }
 
