@@ -2439,6 +2439,9 @@ function stashBreakdown(){
   events.sort((a,b) => (a.t - b.t) || (a.order - b.order));
 
   let nugs = 0, ground = 0, fromGround = 0, shortfall = 0;
+  // Only hits that happen after your first logged grind can be "missing ground".
+  // Older history predates the feature, and flagging it every day is just noise.
+  const firstGrind = bustups.length ? Math.min(...bustups.map(bustTs)) : Infinity;
   events.forEach(e => {
     if (e.kind === "count"){
       ground = e.ground;
@@ -2457,7 +2460,7 @@ function stashBreakdown(){
     // not permission to help yourself from the jar.
     const g = Math.min(ground, e.amt);
     ground -= g; fromGround += g;
-    if (e.amt - g > 0) shortfall += e.amt - g;
+    if (e.amt - g > 0 && e.t >= firstGrind) shortfall += e.amt - g;
   });
 
   const nugsOnHand = Math.max(0, nugs);
@@ -5254,8 +5257,11 @@ function runSelfTests(){
     // Hits before any bust-up have nothing to draw from: they are missing data,
     // not a withdrawal from the jar. Nugs only move when you grind or give away.
     eq("nugs = 28 - 2 busted (hits never eat nugs)", r4(b.nugsOnHand), 26);
-    eq("the 1.79g is reported as a shortfall", r4(b.shortfall), 1.79);
+    eq("hits before the first grind are not flagged", r4(b.shortfall), 0);
     eq("total = ground 1 + nugs 26", r4(b.totalOnHand), 27);
+    log.push({id:"r6", time:iso(0.5), amount:2.5, device:"Pipe", size:"Medium", tags:[]});
+    eq("hits after the grind, with no ground left, are flagged", r4(stashBreakdown().shortfall), 1.5);
+    log.pop();
 
     // A physical count overrides the estimate from that moment on.
     settings.inventoryFix = { at:iso(0), total:0.33, ground:0.33 };
