@@ -779,6 +779,8 @@
     <div class="row" style="margin-top:8px">
       <button class="secondary" onclick="openOtherStash()">Set vape / concentrate</button>
     </div>
+    <p class="tiny" id="vapeDetail" style="margin-top:8px"></p>
+    <p class="tiny" id="concDetail" style="margin-top:2px"></p>
     <p class="tiny" id="otherMoney" style="margin-top:6px"></p>
 
     <!-- Clear breakdown of the math -->
@@ -1233,6 +1235,9 @@
     </div>
     <p class="tiny" id="otherUsedLine" style="margin-top:8px"></p>
     <button class="secondary" style="background:var(--green);color:#fff;width:100%;margin-top:12px" onclick="saveOtherStash()">Save</button>
+    <h2 style="font-size:13px;color:var(--muted);margin-top:16px">Reups you added</h2>
+    <p class="tiny">Remove one and its calendar mark goes with it.</p>
+    <div id="otherReupList"></div>
   </div>
 </div>
 
@@ -5222,6 +5227,36 @@ function renderOtherStash(){
       : (conc <= 0 ? "empty — time to reup" : `counted ${gramsFmt(settings.concOnHand)}`));
   set("vapeUsed", gramsFmt(otherKindUsed("vape", settings.vapeAt)));
   set("concUsed", gramsFmt(otherKindUsed("conc", settings.concAt)));
+  // Same shape as the flower card: what is left, what it costs, how long it lasts.
+  const gphFor = kind => {
+    const dev = kind === "vape" ? "Vape pen" : "Dab";
+    const per = settings.deviceGramsPerHit && +settings.deviceGramsPerHit[dev];
+    return per > 0 ? per : (+settings.defaultGramsPerHit || 0.02);
+  };
+  const rateFor = kind => {
+    const match = kind === "vape"
+      ? (d => /vape|cart|pen/i.test(d || ""))
+      : (d => /dab|concentrate|wax|shatter|resin|rosin/i.test(d || ""));
+    const week = log.filter(x => match(x.device) && +new Date(x.time) >= Date.now() - 7*86400000);
+    return week.reduce((a,x) => a + entryAmount(x), 0) / 7;      // grams per day
+  };
+  const detail = (kind, left) => {
+    const spent = otherSpent(kind), bought = otherBought(kind);
+    const perHit = gphFor(kind);
+    const hitsLeft = left > 0 ? Math.floor(left / perHit) : 0;
+    const bits = [];
+    if (left > 0) bits.push(`about ${hitsLeft} hit${hitsLeft===1?"":"s"} left`);
+    if (bought > 0) bits.push(`${money(spent/bought)}/g · ${money((spent/bought) * perHit)} a hit`);
+    const rate = rateFor(kind);
+    if (left > 0 && rate > 0) bits.push(`${gramsFmt(rate)}/day lately`);
+    if (spent > 0) bits.push(`${money(spent)} spent`);
+    return bits.length ? bits.join(" · ") : "not counted yet";
+  };
+  const vDetail = document.getElementById("vapeDetail");
+  if (vDetail) vDetail.textContent = detail("vape", vape == null ? 0 : vape);
+  const cDetail = document.getElementById("concDetail");
+  if (cDetail) cDetail.textContent = detail("conc", conc == null ? 0 : conc);
+
   const moneyEl = document.getElementById("otherMoney");
   if (moneyEl){
     const parts = [];
@@ -5271,6 +5306,47 @@ function saveOtherReup(){
   renderAll();
   toast(`Added ${gramsFmt(g)} of ${otherReupKind === "vape" ? "vape" : "concentrate"}`);
 }
+function renderOtherReupList(){
+  const el = document.getElementById("otherReupList");
+  if (!el) return;
+  const rows = [];
+  [["vape","Vape"],["conc","Concentrate"]].forEach(([kind,label]) => {
+    otherReups(kind).slice().sort((a,b)=> new Date(b.at) - new Date(a.at)).forEach((r,i) => {
+      const d = new Date(r.at);
+      rows.push(`<div class="entry"><div class="meta">
+        <div class="entry-top"><span class="entry-time">${esc(label)} · ${d.toLocaleDateString(undefined,{day:"numeric",month:"short"})}</span>
+        <span class="entry-g">${gramsFmt(r.g)}</span></div>
+        <small class="entry-what">${r.price > 0 ? money(r.price) : "no price recorded"}</small>
+      </div><div class="entry-acts"><button class="del-btn" onclick="deleteOtherReup('${kind}','${r.at}')" aria-label="Remove reup">✕</button></div></div>`);
+    });
+  });
+  el.innerHTML = rows.length ? rows.join("") : '<p class="muted" style="font-size:13px">Nothing added yet.</p>';
+}
+function deleteOtherReup(kind, at){
+  const list = otherReups(kind);
+  const i = list.findIndex(r => r.at === at);
+  if (i < 0) return;
+  const r = list.splice(i, 1)[0];
+  // Take the grams back off what is on hand; prices follow automatically.
+  if (kind === "vape"){
+    settings.vapeOnHand = r4(Math.max(0, (settings.vapeOnHand || 0) - (+r.g || 0)));
+    if (settings.vapeAt === at){
+      const last = list.slice().sort((a,b)=> new Date(b.at) - new Date(a.at))[0];
+      settings.vapeAt = last ? last.at : null;
+    }
+  } else {
+    settings.concOnHand = r4(Math.max(0, (settings.concOnHand || 0) - (+r.g || 0)));
+    if (settings.concAt === at){
+      const last = list.slice().sort((a,b)=> new Date(b.at) - new Date(a.at))[0];
+      settings.concAt = last ? last.at : null;
+    }
+  }
+  saveSettingsObj();
+  renderOtherReupList();
+  renderOtherStash();
+  calRender();
+  toast("Reup removed");
+}
 function openOtherStash(){
   document.getElementById("otherVape").value = settings.vapeOnHand == null ? "" : settings.vapeOnHand;
   document.getElementById("otherConc").value = settings.concOnHand == null ? "" : settings.concOnHand;
@@ -5279,6 +5355,7 @@ function openOtherStash(){
     el.textContent = `Used so far: ${gramsFmt(otherKindUsed("vape", settings.vapeAt))} of vape, `
       + `${gramsFmt(otherKindUsed("conc", settings.concAt))} of concentrate. Saving sets a new starting point.`;
   }
+  renderOtherReupList();
   openModal("otherModal");
 }
 function saveOtherStash(){
