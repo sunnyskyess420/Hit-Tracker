@@ -921,7 +921,7 @@
 
     <div class="pat-h">Gaps &amp; streaks</div>
     <div class="grid">
-      <div class="stat"><span class="stat-l">Longest gap</span><b id="longestGap">—</b><small class="stat-d">longest awake break between hits</small></div>
+      <div class="stat"><span class="stat-l">Longest gap</span><b id="longestGap">—</b><small class="stat-d" id="longestGapNote">longest break between hits</small></div>
       <div class="stat"><span class="stat-l">Current streak</span><b id="streakCurrent">0</b><small class="stat-d">days in a row, still running</small></div>
       <div class="stat"><span class="stat-l">Longest streak</span><b id="streakLongest">0</b><small class="stat-d">days in a row with a hit</small></div>
     </div>
@@ -5151,9 +5151,24 @@ function renderAll(){
   const sorted=[...log].sort((a,b)=>new Date(a.time)-new Date(b.time));
   const last=sorted[sorted.length-1];
   setText("currentGap", last?fmtDuration(activeMs(+new Date(last.time), Date.now())):"—");
-  let longest=null;
-  for(let i=1;i<sorted.length;i++){ const g=activeMs(+new Date(sorted[i-1].time), +new Date(sorted[i].time)); if(!longest||g>longest) longest=g; }
+  let longest=null, longestRaw=null;
+  for(let i=1;i<sorted.length;i++){
+    const a=+new Date(sorted[i-1].time), b=+new Date(sorted[i].time);
+    const g=activeMs(a,b);
+    if(!longest||g>longest){ longest=g; longestRaw=b-a; }
+  }
   setText("longestGap", fmtDuration(longest));
+  // If the break spans a day with no hits, say so. Otherwise 17h looks impossible
+  // on a 13-hour waking day and the number seems broken when it isn't.
+  const gapNote = document.getElementById("longestGapNote");
+  if (gapNote){
+    if (longest == null) gapNote.textContent = "no two hits to compare yet";
+    else if (longestRaw > longest + 60000){
+      gapNote.textContent = `${fmtDuration(longestRaw)} apart on the clock, sleep removed`;
+    } else {
+      gapNote.textContent = "longest break between hits";
+    }
+  }
   renderStreaks();
 
   renderLimit();
@@ -5431,7 +5446,13 @@ function runSelfTests(){
     eq("other devices unaffected", settings.deviceLastAmount.Pipe, undefined);
 
     // Sleep window: 01:00-10:00 must not count toward a gap.
-    settings.sleepEnabled = true; settings.sleepStart = "01:00"; settings.sleepEnd = "10:00";
+    settings.sleepEnabled = true; settings.sleepStart = "00:00"; settings.sleepEnd = "11:00";
+    const ov1 = new Date(2026,10,2,22,0).getTime(), ov2 = new Date(2026,10,3,15,22).getTime();
+    eq("overnight 17h gap minus 11h asleep = 6h22m", fmtDuration(activeMs(ov1, ov2)), "6h 22m");
+    const ov3 = new Date(2026,10,4,2,22).getTime();
+    eq("a break over a skipped day keeps only awake hours", fmtDuration(activeMs(ov1, ov3)), "15h 0m");
+    settings.sleepStart = "01:00"; settings.sleepEnd = "10:00";
+    eq("sleep window 1am-10am on the same break", fmtDuration(activeMs(ov1, ov2)), "8h 22m");
     const base = new Date(); base.setHours(0, 30, 0, 0);
     const after = new Date(base.getTime() + 10 * 3600 * 1000);   // 00:30 -> 10:30 = 10h
     eq("sleep hours excluded from a gap", Math.round(activeMs(base.getTime(), after.getTime()) / 3600000), 1);
