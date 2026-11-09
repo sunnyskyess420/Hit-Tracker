@@ -1155,10 +1155,14 @@
   <div class="sheet">
     <button class="sheet-close" aria-label="Close" onclick="closeModal('editHitModal')">×</button>
     <h2>Edit hit</h2>
-    <p class="tiny">Fix what was recorded — the time stays the same.</p>
+    <p class="tiny">Fix what was recorded. Tick the box below if the time is a guess.</p>
     <input type="hidden" id="editHitId">
     <label>When</label>
     <input type="datetime-local" id="editHitTime">
+    <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
+      <input type="checkbox" id="editHitApprox" style="width:auto;margin:0">
+      <span>Time is a guess — leave it out of gap and hour stats</span>
+    </label>
     <div class="chart-row">
       <div><label>Device</label><select id="editHitDevice"></select></div>
       <div><label>Size</label><select id="editHitSize"></select></div>
@@ -1681,6 +1685,9 @@ function migrateEntry(x){
   return {
     id:           x.id != null ? x.id : (Date.now() + Math.random()),
     time:         x.time || new Date().toISOString(),
+    // A backfilled day has a made-up clock time (often 6pm). Keeping the flag
+    // lets totals use it while gap and by-hour stats ignore the fake hour.
+    approx:       !!x.approx,
     size:         x.size || "Medium",
     device:       x.device || "Other",
     note:         x.note || "",
@@ -2812,6 +2819,8 @@ function openHitEdit(id){
   document.getElementById("editHitNote").value = e.note || "";
   const d = new Date(e.time);
   const p2 = n => String(n).padStart(2, "0");
+  const apxEl = document.getElementById("editHitApprox");
+  if (apxEl) apxEl.checked = !!e.approx;
   document.getElementById("editHitTime").value =
     d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate())
     + "T" + p2(d.getHours()) + ":" + p2(d.getMinutes());
@@ -2829,6 +2838,8 @@ function saveHitEdit(){
   }
   const when = new Date(document.getElementById("editHitTime").value);
   if (!isNaN(when.getTime())) e.time = when.toISOString();
+  const apx = document.getElementById("editHitApprox");
+  if (apx) e.approx = !!apx.checked;
   e.device = document.getElementById("editHitDevice").value;
   e.size   = document.getElementById("editHitSize").value;
   const am = document.getElementById("editHitAmount").value;
@@ -3494,7 +3505,7 @@ function renderCharts(){
   }
   // by hour — follows the grams/hits setting instead of always counting hits
   const hourVals=Array(24).fill(0);
-  log.forEach(x=>{ hourVals[new Date(x.time).getHours()] += isGrams ? entryAmount(x) : 1; });
+  log.forEach(x=>{ if (x.approx) return; hourVals[new Date(x.time).getHours()] += isGrams ? entryAmount(x) : 1; });
   const hourLabels=hourVals.map((_,i)=>hourLabel(i));
   makeBarChart("hourChart",hourLabels,hourVals,"#26a69a",false,decimal);
   {
@@ -3589,7 +3600,14 @@ function renderInsights(){
   // average gap all-time
   const sorted=[...log].sort((a,b)=>new Date(a.time)-new Date(b.time));
   let avgGap=null;
-  if (sorted.length>1){ let s=0; for(let i=1;i<sorted.length;i++) s+=activeMs(+new Date(sorted[i-1].time), +new Date(sorted[i].time)); avgGap=s/(sorted.length-1); }
+  if (sorted.length>1){
+    let s=0, n=0;
+    for(let i=1;i<sorted.length;i++){
+      if (sorted[i-1].approx || sorted[i].approx) continue;
+      s += activeMs(+new Date(sorted[i-1].time), +new Date(sorted[i].time)); n++;
+    }
+    avgGap = n ? s/n : null;
+  }
   // Label, value, then a caption that says what the value actually counts.
   const cell=(l,v,d)=>`<div class="stat"><span class="stat-l">${l}</span><b>${v}</b>${d?`<small class="stat-d">${d}</small>`:""}</div>`;
   const n = log.length;
@@ -5153,6 +5171,8 @@ function renderAll(){
   setText("currentGap", last?fmtDuration(activeMs(+new Date(last.time), Date.now())):"—");
   let longest=null, longestRaw=null, gapFrom=null, gapTo=null;
   for(let i=1;i<sorted.length;i++){
+    // A guessed time cannot tell us how long a real break was, so skip those pairs.
+    if (sorted[i-1].approx || sorted[i].approx) continue;
     const a=+new Date(sorted[i-1].time), b=+new Date(sorted[i].time);
     const g=activeMs(a,b);
     if(!longest||g>longest){ longest=g; longestRaw=b-a; gapFrom=sorted[i-1]; gapTo=sorted[i]; }
