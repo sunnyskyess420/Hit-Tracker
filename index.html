@@ -623,7 +623,33 @@
     </div>
 
   <!-- ===== LOG CARD ===== -->
-  <div class="card">
+  <div class="card" id="limitCard">
+    <h2>Today</h2>
+    <div class="limit-wrap">
+      <div class="ring-box">
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#2a2f36" stroke-width="10"/>
+          <circle id="ringArc" cx="60" cy="60" r="52" fill="none" stroke="var(--green-bright)" stroke-width="10"
+            stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round"
+            transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .5s, stroke .3s"/>
+        </svg>
+        <div class="ring-label"><b id="ringCount">0</b><span id="ringSub">no limit set</span></div>
+      </div>
+      <div class="limit-info">
+        <div id="limitNotice"></div>
+        <div class="grid" style="margin-top:8px">
+          <div class="stat"><span class="stat-l">Left today</span><b id="todayLeft">—</b><small class="stat-d" id="todayLeftNote">of your daily limit</small></div>
+          <div class="stat"><span class="stat-l">Used today</span><b id="todayUsed">0</b><small class="stat-d" id="todayUsedNote">—</small></div>
+          <div class="stat"><span class="stat-l">Extra from yesterday</span><b id="goalBankStat">—</b><small class="stat-d" id="bankNote">unused allowance, not weed</small></div>
+          <div class="stat"><span class="stat-l">Since last hit</span><b id="currentGap">—</b><small class="stat-d">awake time</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STASH CARD (two-stage: nugs → ground → smoked) ===== -->
+
+<div class="card">
     <button id="logButton">Log a hit</button>
     <div class="quickrow" id="quickButtons"></div>
     <div class="row">
@@ -710,101 +736,8 @@
   </div>
 
   <!-- ===== TODAY CARD (limit ring + key today numbers + stash summary) ===== -->
-  <div class="card" id="limitCard">
-    <h2>Today</h2>
-    <div class="limit-wrap">
-      <div class="ring-box">
-        <svg viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r="52" fill="none" stroke="#2a2f36" stroke-width="10"/>
-          <circle id="ringArc" cx="60" cy="60" r="52" fill="none" stroke="var(--green-bright)" stroke-width="10"
-            stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round"
-            transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .5s, stroke .3s"/>
-        </svg>
-        <div class="ring-label"><b id="ringCount">0</b><span id="ringSub">no limit set</span></div>
-      </div>
-      <div class="limit-info">
-        <div id="limitNotice"></div>
-        <div class="grid" style="margin-top:8px">
-          <div class="stat"><span class="stat-l">Left today</span><b id="todayLeft">—</b><small class="stat-d" id="todayLeftNote">of your daily limit</small></div>
-          <div class="stat"><span class="stat-l">Used today</span><b id="todayUsed">0</b><small class="stat-d" id="todayUsedNote">—</small></div>
-          <div class="stat"><span class="stat-l">Extra from yesterday</span><b id="goalBankStat">—</b><small class="stat-d" id="bankNote">unused allowance, not weed</small></div>
-          <div class="stat"><span class="stat-l">Since last hit</span><b id="currentGap">—</b><small class="stat-d">awake time</small></div>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- ===== STASH CARD (two-stage: nugs → ground → smoked) ===== -->
-  <div class="card">
-    <h2>Weed left</h2>
-    <div class="grid">
-      <div class="stat"><span class="stat-l">On hand</span><b id="stashGrams">—</b><small class="stat-d" id="stashLasts">nothing tracked yet</small></div>
-      <div class="stat"><span class="stat-l">Nugs (whole)</span><b id="stashNugs">—</b><small class="stat-d">not ground yet</small></div>
-      <div class="stat"><span class="stat-l">Ground (ready)</span><b id="stashGround">—</b><small class="stat-d">smoke this first</small></div>
-      <div class="stat"><span class="stat-l">Hits remaining</span><b id="stashHitsLeft">—</b><small class="stat-d">at your grams per hit</small></div>
-      <div class="stat"><span class="stat-l">Effective $/g</span><b id="stashPricePerG">—</b><small class="stat-d">what you actually paid</small></div>
-      <div class="stat"><span class="stat-l">Total spent</span><b id="stashSpent">—</b><small class="stat-d">all reups</small></div>
-    </div>
-
-    <div id="stashLowWarning" style="display:none;margin-top:8px;padding:8px;background:var(--surface2);border-left:4px solid var(--red);border-radius:6px;font-size:13px;color:var(--text)">
-      ⚠️ <b>Low stash:</b> You're under <span id="stashLowThresh"></span>g on hand — time to reup.
-    </div>
-
-    <div id="lastBatch" class="tiny" style="display:none;margin-top:8px"></div>
-
-    <div id="weighNudge" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--amber);border-radius:6px;font-size:13px;color:var(--text)">
-      <div id="weighNudgeText"></div>
-      <div class="row" style="margin-top:8px">
-        <button class="secondary" onclick="openCount()">Count it</button>
-        <button class="secondary" onclick="dismissWeighNudge()">Not now</button>
-      </div>
-    </div>
-
-    <div id="groundNudge" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--green-bright);border-radius:6px;font-size:13px;color:var(--text)">
-      <div id="groundNudgeText"></div>
-      <button class="secondary" id="groundNudgeBtn" style="margin-top:8px;width:100%;background:var(--green);color:#fff;font-weight:700" onclick="bustUp('')">Bust up</button>
-    </div>
-
-    <!-- Clear breakdown of the math -->
-    <div id="weedMath" class="weed-math"></div>
-
-    <div class="gph-row">
-      <span class="tiny" style="flex:1">Grams per hit</span>
-      <button class="gph-btn" onclick="adjustGph(-0.01)" aria-label="Decrease grams per hit by 0.01" title="−0.01">−</button>
-      <b id="gphDisplay">0.02g</b>
-      <button class="gph-btn" onclick="adjustGph(0.01)" aria-label="Increase grams per hit by 0.01" title="+0.01">+</button>
-    </div>
-    <p class="tiny" id="gphNote" style="margin-top:4px"></p>
-
-    <div class="row">
-      <button class="secondary" onclick="openStash()">Manage stash</button>
-      <button class="secondary" onclick="openGiveaway()">Give away / sell</button>
-      <button class="secondary" onclick="openCount()">Count it</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>Vape &amp; concentrate</h2>
-    <div class="grid">
-      <div class="stat"><span class="stat-l">Vape on hand</span><b id="vapeLeft">—</b><small class="stat-d" id="vapeNote">not counted yet</small></div>
-      <div class="stat"><span class="stat-l">Concentrate on hand</span><b id="concLeft">—</b><small class="stat-d" id="concNote">not counted yet</small></div>
-      <div class="stat"><span class="stat-l">Vape used</span><b id="vapeUsed">—</b><small class="stat-d">since you counted</small></div>
-      <div class="stat"><span class="stat-l">Concentrate used</span><b id="concUsed">—</b><small class="stat-d">since you counted</small></div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button class="secondary" onclick="openOtherReup('vape')">Reup vape</button>
-      <button class="secondary" onclick="openOtherReup('conc')">Reup concentrate</button>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button class="secondary" onclick="openOtherStash()">Set vape / concentrate</button>
-    </div>
-    <p class="tiny" id="vapeDetail" style="margin-top:8px"></p>
-    <p class="tiny" id="concDetail" style="margin-top:2px"></p>
-    <p class="tiny" id="otherMoney" style="margin-top:6px"></p>
-  </div>
-
-  <!-- ===== CALENDAR ===== -->
-  <div class="card">
+<div class="card">
     <h2>Calendar</h2>
     <div class="cal-head">
       <button onclick="calMove(-1)">‹</button>
@@ -830,7 +763,8 @@
   </div>
 
   <!-- ===== ENTRIES ===== -->
-  <div class="card">
+
+<div class="card">
     <h2>Entries</h2>
     <div class="search-row">
       <select id="filterDevice" onchange="entriesFilterChanged()"><option value="">All devices</option></select>
@@ -907,24 +841,7 @@
     </div>
   </div>
 
-  <!-- ===== CHARTS & REPORTS (moved to bottom) ===== -->
-  <div class="card"><h2>30-day trend</h2><canvas id="trendChart"></canvas><div class="chart-note" id="noteTrend"></div></div>
-  <div class="card"><h2>Weekly totals — last 12 weeks</h2><canvas id="weeklyChart"></canvas><div class="chart-note" id="noteWeekly"></div></div>
-  <div class="chart-row">
-    <div class="card"><h2>By hour</h2><canvas id="hourChart"></canvas><div class="chart-note" id="noteHour"></div></div>
-    <div class="card"><h2>By weekday</h2><canvas id="dowChart"></canvas><div class="chart-note" id="noteDow"></div></div>
-  </div>
-  <div class="chart-row">
-    <div class="card"><h2>By device</h2><canvas id="deviceChart"></canvas><div class="chart-note" id="noteDevice"></div></div>
-    <div class="card"><h2>By size</h2><canvas id="sizeChart"></canvas><div class="chart-note" id="noteSize"></div></div>
-  </div>
-  <!-- 14-day chart kept but lower; it's similar to 30-day so smaller priority -->
-  <div class="card"><h2>Daily usage — last 14 days</h2><canvas id="dailyChart"></canvas><div class="chart-note" id="noteDaily"></div></div>
-  <div id="noChartWarn" class="card hidden"><p class="muted" style="font-size:13px">Charts need an internet connection on first load (Chart.js CDN). They'll be cached after.</p></div>
-
-  <div class="card"><h2>Weekly report</h2><div id="weeklyReport"></div></div>
-
-  <div class="card">
+<div class="card">
     <h2>Patterns</h2>
     <div class="pat-scope" id="patScope"></div>
 
@@ -967,7 +884,94 @@
     </div>
   </div>
 
-  <div class="card"><h2>Mood & sleep vs usage</h2><div id="correlations"></div><p class="tiny" style="margin-top:8px">Correlation is not causation — for personal awareness only. Not medical advice.</p></div>
+<div class="card"><h2>Mood & sleep vs usage</h2><div id="correlations"></div><p class="tiny" style="margin-top:8px">Correlation is not causation — for personal awareness only. Not medical advice.</p></div>
+
+<div class="card">
+    <h2>Weed left</h2>
+    <div class="grid">
+      <div class="stat"><span class="stat-l">On hand</span><b id="stashGrams">—</b><small class="stat-d" id="stashLasts">nothing tracked yet</small></div>
+      <div class="stat"><span class="stat-l">Nugs (whole)</span><b id="stashNugs">—</b><small class="stat-d">not ground yet</small></div>
+      <div class="stat"><span class="stat-l">Ground (ready)</span><b id="stashGround">—</b><small class="stat-d">smoke this first</small></div>
+      <div class="stat"><span class="stat-l">Hits remaining</span><b id="stashHitsLeft">—</b><small class="stat-d">at your grams per hit</small></div>
+      <div class="stat"><span class="stat-l">Effective $/g</span><b id="stashPricePerG">—</b><small class="stat-d">what you actually paid</small></div>
+      <div class="stat"><span class="stat-l">Total spent</span><b id="stashSpent">—</b><small class="stat-d">all reups</small></div>
+    </div>
+
+    <div id="stashLowWarning" style="display:none;margin-top:8px;padding:8px;background:var(--surface2);border-left:4px solid var(--red);border-radius:6px;font-size:13px;color:var(--text)">
+      ⚠️ <b>Low stash:</b> You're under <span id="stashLowThresh"></span>g on hand — time to reup.
+    </div>
+
+    <div id="lastBatch" class="tiny" style="display:none;margin-top:8px"></div>
+
+    <div id="weighNudge" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--amber);border-radius:6px;font-size:13px;color:var(--text)">
+      <div id="weighNudgeText"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="secondary" onclick="openCount()">Count it</button>
+        <button class="secondary" onclick="dismissWeighNudge()">Not now</button>
+      </div>
+    </div>
+
+    <div id="groundNudge" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--green-bright);border-radius:6px;font-size:13px;color:var(--text)">
+      <div id="groundNudgeText"></div>
+      <button class="secondary" id="groundNudgeBtn" style="margin-top:8px;width:100%;background:var(--green);color:#fff;font-weight:700" onclick="bustUp('')">Bust up</button>
+    </div>
+
+    <!-- Clear breakdown of the math -->
+    <div id="weedMath" class="weed-math"></div>
+
+    <div class="gph-row">
+      <span class="tiny" style="flex:1">Grams per hit</span>
+      <button class="gph-btn" onclick="adjustGph(-0.01)" aria-label="Decrease grams per hit by 0.01" title="−0.01">−</button>
+      <b id="gphDisplay">0.02g</b>
+      <button class="gph-btn" onclick="adjustGph(0.01)" aria-label="Increase grams per hit by 0.01" title="+0.01">+</button>
+    </div>
+    <p class="tiny" id="gphNote" style="margin-top:4px"></p>
+
+    <div class="row">
+      <button class="secondary" onclick="openStash()">Manage stash</button>
+      <button class="secondary" onclick="openGiveaway()">Give away / sell</button>
+      <button class="secondary" onclick="openCount()">Count it</button>
+    </div>
+  </div>
+
+<div class="card">
+    <h2>Vape &amp; concentrate</h2>
+    <div class="grid">
+      <div class="stat"><span class="stat-l">Vape on hand</span><b id="vapeLeft">—</b><small class="stat-d" id="vapeNote">not counted yet</small></div>
+      <div class="stat"><span class="stat-l">Concentrate on hand</span><b id="concLeft">—</b><small class="stat-d" id="concNote">not counted yet</small></div>
+      <div class="stat"><span class="stat-l">Vape used</span><b id="vapeUsed">—</b><small class="stat-d">since you counted</small></div>
+      <div class="stat"><span class="stat-l">Concentrate used</span><b id="concUsed">—</b><small class="stat-d">since you counted</small></div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="secondary" onclick="openOtherReup('vape')">Reup vape</button>
+      <button class="secondary" onclick="openOtherReup('conc')">Reup concentrate</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="secondary" onclick="openOtherStash()">Set vape / concentrate</button>
+    </div>
+    <p class="tiny" id="vapeDetail" style="margin-top:8px"></p>
+    <p class="tiny" id="concDetail" style="margin-top:2px"></p>
+    <p class="tiny" id="otherMoney" style="margin-top:6px"></p>
+  </div>
+
+  <!-- ===== CALENDAR ===== -->
+
+<!-- ===== CHARTS & REPORTS (moved to bottom) ===== -->
+  <div class="card"><h2>30-day trend</h2><canvas id="trendChart"></canvas><div class="chart-note" id="noteTrend"></div></div>
+  <div class="card"><h2>Weekly totals — last 12 weeks</h2><canvas id="weeklyChart"></canvas><div class="chart-note" id="noteWeekly"></div></div>
+  <div class="chart-row">
+    <div class="card"><h2>By hour</h2><canvas id="hourChart"></canvas><div class="chart-note" id="noteHour"></div></div>
+    <div class="card"><h2>By weekday</h2><canvas id="dowChart"></canvas><div class="chart-note" id="noteDow"></div></div>
+  </div>
+  <div class="chart-row">
+    <div class="card"><h2>By device</h2><canvas id="deviceChart"></canvas><div class="chart-note" id="noteDevice"></div></div>
+    <div class="card"><h2>By size</h2><canvas id="sizeChart"></canvas><div class="chart-note" id="noteSize"></div></div>
+  </div>
+  <!-- 14-day chart kept but lower; it's similar to 30-day so smaller priority -->
+  <div class="card"><h2>Daily usage — last 14 days</h2><canvas id="dailyChart"></canvas><div class="chart-note" id="noteDaily"></div></div>
+  <div id="noChartWarn" class="card hidden"><p class="muted" style="font-size:13px">Charts need an internet connection on first load (Chart.js CDN). They'll be cached after.</p></div>
+
+  <div class="card"><h2>Weekly report</h2><div id="weeklyReport"></div></div>
 
 </div><!-- /wrap -->
 
