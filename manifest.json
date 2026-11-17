@@ -1,7 +1,7 @@
 {
-  "name": "Sunnys Hit Tracker",
-  "short_name": "Sunnys Hit Tracker",
-  "description": "Private, single-file marijuana usage tracker. Gram-based, offline, no account.",
+  "name": "Sunnys Tokes Tracker",
+  "short_name": "Tokes",
+  "description": "Private, single-file usage tracker. Gram-based, offline, no account.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -42,8 +42,8 @@
   ],
   "shortcuts": [
     {
-      "name": "Log a hit",
-      "short_name": "Log hit",
+      "name": "Log a toke",
+      "short_name": "Log toke",
       "url": "./?action=hit",
       "icons": [
         {

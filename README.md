@@ -1,4 +1,4 @@
-# Sunnys Hit Tracker
+# Sunnys Tokes Tracker
 
 A private, single-file marijuana usage tracker. All data stays in your browser — no account, no server, nothing leaves your device. Works fully offline, including on first load.
 

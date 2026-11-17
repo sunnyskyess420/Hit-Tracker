@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#101214">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Sunnys Hit Tracker">
+<meta name="apple-mobile-web-app-title" content="Sunnys Tokes Tracker">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="256x256" href="icon-256.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Sunnys Hit Tracker</title>
+<title>Sunnys Tokes Tracker</title>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
@@ -20,13 +20,13 @@
 </script>
 
 <!--
-  Sunnys Hit Tracker — single-file private marijuana usage tracker.
+  Sunnys Tokes Tracker — single-file private marijuana usage tracker.
   All data stays in localStorage by default. No account, no server.
   DEPENDENCIES: none remote. Chart.js is bundled locally (chart.umd.min.js) so the
   app works fully offline from the very first load.
 
   DATA KEYS
-    hitTrackerLogV2       -> array of hit entries (PRIMARY, preserved from v1)
+    hitTrackerLogV2       -> array of toke entries (PRIMARY, preserved from v1)
     hitTrackerSettingsV2  -> app settings (limit, currency, costs, PIN, quick buttons, tags)
     hitTrackerCheckinsV2  -> end-of-day check-ins (sleep/mood/productivity/wellbeing 1-5)
 
@@ -34,7 +34,7 @@
     { id, time, size, device, note,            // original v1 fields
       moodBefore, moodAfter, stress, energy,   // 1-5 or null
       sleepQuality, social,                    // 1-5 or null ; social: "alone"|"others"|null
-      tags: [], cost: null, amount: null }     // tags: string[] ; cost: per-hit override ; amount: grams/etc
+      tags: [], cost: null, amount: null }     // tags: string[] ; cost: per-toke override ; amount: grams/etc
 
   COMMENTS: each section is numbered so you can jump to it with Ctrl+F "===== N".
 -->
@@ -130,7 +130,7 @@
     position:relative;overflow:hidden;
   }
   #logButton:active{transform:scale(.99);background:#266b2a}
-  /* Sparkle/pulse animation when logging a hit */
+  /* Sparkle/pulse animation when logging a toke */
   @keyframes logPulse{
     0%   { transform:scale(1);   box-shadow:0 0 0 0 rgba(76,175,80,.7); }
     30%  { transform:scale(1.08);box-shadow:0 0 0 20px rgba(76,175,80,0); }
@@ -138,7 +138,7 @@
     100% { transform:scale(1);   box-shadow:0 0 0 0 rgba(76,175,80,0); }
   }
   #logButton.pulse{ animation:logPulse .6s ease-out; }
-  /* Leaf particles when a hit is logged */
+  /* Leaf particles when a toke is logged */
   .sparkle{
     position:absolute;width:15px;height:15px;
     background:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzNyIgdmlld0JveD0iMCAwIDMyIDM3Ij48cGF0aCBkPSJNMTYgMS41QzIzLjQgNy42IDI2LjQgMTggMTYgMzAuNSA1LjYgMTggOC42IDcuNiAxNiAxLjVaIiBmaWxsPSIjOGVkNDZhIi8+PHBhdGggZD0iTTE2IDMwLjVWMzYuNSIgc3Ryb2tlPSIjOGVkNDZhIiBzdHJva2Utd2lkdGg9IjEuOCIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+") center/contain no-repeat;
@@ -251,12 +251,12 @@
   .cal-cell .cal-vape{left:2px;color:#4dd0c4}
   .cal-cell .cal-conc{right:2px;color:#ffb74d}
   .cal-cell .cal-vape svg,.cal-cell .cal-conc svg{width:11px;height:11px;display:block}
-  /* Hit leaves — small 🌿 icons, one per hit, wrapped to fill the cell */
+  /* Toke leaves — small 🌿 icons, one per toke, wrapped to fill the cell */
   .cal-cell{flex-direction:column;gap:0}
   .cal-cell .n{font-size:11px;color:var(--muted);line-height:1}
   .cal-cell.cal-tier-1 .n,.cal-cell.cal-tier-2 .n,.cal-cell.cal-tier-3 .n,.cal-cell.cal-tier-4 .n{color:rgba(255,255,255,.88)}
-  .cal-cell .cal-hits{font-size:16px;font-weight:800;line-height:1.05;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45)}
-  .cal-cell .cal-hits.sm{font-size:12px}
+  .cal-cell .cal-tokes{font-size:16px;font-weight:800;line-height:1.05;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45)}
+  .cal-cell .cal-tokes.sm{font-size:12px}
   .cal-caption{font-size:10px;color:var(--muted2);text-align:center;margin-top:6px}
   .chart-note{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.35}
   .day-headline{font-size:17px;font-weight:800;letter-spacing:.2px;margin:2px 0 2px}
@@ -564,7 +564,7 @@
 </svg>
 
 <!-- ===== BACK-TO-TOP / QUICK-LOG BUTTON (appears after first viewport) ===== -->
-<button id="toTopBtn" class="to-top" aria-label="Back to top to log a hit" title="Back to top — log a hit">↑ Log a hit</button>
+<button id="toTopBtn" class="to-top" aria-label="Back to top to log a toke" title="Back to top — log a toke">↑ Log a toke</button>
 
 <!-- ===== LOCK OVERLAY (shown when PIN enabled & locked) ===== -->
 <div id="lockOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Locked">
@@ -597,7 +597,7 @@
 <div class="wrap" id="appWrap">
 
   <header class="topbar">
-    <h1>Sunnys Hit Tracker</h1>
+    <h1>Sunnys Tokes Tracker</h1>
     <button class="ico-btn" title="Lock" aria-label="Lock" onclick="engageLock()"><svg class="ico-20" aria-hidden="true"><use href="#ico-lock"/></svg></button>
     <button class="ico-btn" aria-label="Panic hide" title="Panic hide" onclick="panic()"><svg class="ico-20" aria-hidden="true"><use href="#ico-hide"/></svg></button>
     <button class="ico-btn" title="Settings" aria-label="Settings" onclick="openSettings()"><svg class="ico-20" aria-hidden="true"><use href="#ico-sliders"/></svg></button>
@@ -641,7 +641,7 @@
           <div class="stat"><span class="stat-l">Left today</span><b id="todayLeft">—</b><small class="stat-d" id="todayLeftNote">of your daily limit</small></div>
           <div class="stat"><span class="stat-l">Used today</span><b id="todayUsed">0</b><small class="stat-d" id="todayUsedNote">—</small></div>
           <div class="stat"><span class="stat-l">Extra from yesterday</span><b id="goalBankStat">—</b><small class="stat-d" id="bankNote">unused allowance, not weed</small></div>
-          <div class="stat"><span class="stat-l">Since last hit</span><b id="currentGap">—</b><small class="stat-d">awake time</small></div>
+          <div class="stat"><span class="stat-l">Since last toke</span><b id="currentGap">—</b><small class="stat-d">awake time</small></div>
         </div>
       </div>
     </div>
@@ -650,7 +650,7 @@
   <!-- ===== STASH CARD (two-stage: nugs → ground → smoked) ===== -->
 
 <div class="card">
-    <button id="logButton">Log a hit</button>
+    <button id="logButton">Log a toke</button>
     <div class="quickrow" id="quickButtons"></div>
     <div class="row">
       <button class="secondary" onclick="undoLast()">Undo last</button>
@@ -669,7 +669,7 @@
     </button>
 
     <div id="details" class="hidden">
-      <label>Hit size</label>
+      <label>Toke size</label>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="chips" id="sizeChips" style="margin-top:0;flex:1 1 auto"><button class="chip" onclick="setSize('Small')">Small</button><button class="chip active" onclick="setSize('Medium')">Medium</button><button class="chip" onclick="setSize('Large')">Large</button></div>
         <button class="secondary" style="margin:0;flex:0 0 auto;white-space:nowrap" onclick="saveDetails()" title="Save device, strain, note, tags and before/after moods as your defaults">Save</button>
@@ -728,7 +728,7 @@
         </div>
       </div>
 
-      <label>Amount (g) — leave blank to use default (<span id="defGramsSym">0.02</span>g/hit)</label>
+      <label>Amount (g) — leave blank to use default (<span id="defGramsSym">0.02</span>g/toke)</label>
       <input type="number" id="amountInput" step="0.01" min="0" placeholder="auto">
       <label>Cost override (<span id="curSym">$</span>) — leave blank to auto-calc</label>
       <input type="number" id="costOverride" step="0.01" min="0" placeholder="auto">
@@ -758,7 +758,7 @@
       <span><svg class="ico-inline" style="color:#4dd0c4" aria-hidden="true"><use href="#ico-vape"/></svg>vape</span>
       <span><svg class="ico-inline" style="color:#ffb74d" aria-hidden="true"><use href="#ico-conc"/></svg>concentrate</span>
     </div>
-    <div class="cal-caption">Big number = hits that day · colour = grams used</div>
+    <div class="cal-caption">Big number = tokes that day · colour = grams used</div>
     <div class="cal-month-total" id="calMonthTotal"></div>
   </div>
 
@@ -849,16 +849,16 @@
 
     <div class="pat-h">Activity</div>
     <div class="grid">
-      <div class="stat"><span class="stat-l">Hits per day</span><b id="weekAvg">0.0</b><small class="stat-d">average, last 7 days</small></div>
-      <div class="stat"><span class="stat-l">Hits, last 30 days</span><b id="monthTotal">0</b><small class="stat-d">rolling 30 days</small></div>
-      <div class="stat"><span class="stat-l">Hits yesterday</span><b id="yesterday">0</b><small class="stat-d">calendar day</small></div>
+      <div class="stat"><span class="stat-l">Tokes per day</span><b id="weekAvg">0.0</b><small class="stat-d">average, last 7 days</small></div>
+      <div class="stat"><span class="stat-l">Tokes, last 30 days</span><b id="monthTotal">0</b><small class="stat-d">rolling 30 days</small></div>
+      <div class="stat"><span class="stat-l">Tokes yesterday</span><b id="yesterday">0</b><small class="stat-d">calendar day</small></div>
     </div>
 
     <div class="pat-h">Grams &amp; money</div>
     <div class="grid">
       <div class="stat"><span class="stat-l">Grams this week</span><b id="weekGrams">—</b><small class="stat-d">since Sunday</small></div>
       <div class="stat"><span class="stat-l">Grams this month</span><b id="monthGrams">—</b><small class="stat-d">calendar month</small></div>
-      <div class="stat"><span class="stat-l">Grams all time</span><b id="allTimeGrams">—</b><small class="stat-d">every hit ever logged</small></div>
+      <div class="stat"><span class="stat-l">Grams all time</span><b id="allTimeGrams">—</b><small class="stat-d">every toke ever logged</small></div>
       <div class="stat"><span class="stat-l">Spent this week</span><b id="weekCost">—</b><small class="stat-d">estimated, since Sunday</small></div>
       <div class="stat"><span class="stat-l">Spent this month</span><b id="monthCost">—</b><small class="stat-d">estimated</small></div>
       <div class="stat"><span class="stat-l">Spent all time</span><b id="allTimeCost">—</b><small class="stat-d">estimated</small></div>
@@ -872,9 +872,9 @@
 
     <div class="pat-h">Gaps &amp; streaks</div>
     <div class="grid">
-      <div class="stat" id="longestGapStat"><span class="stat-l">Longest gap</span><b id="longestGap">—</b><small class="stat-d" id="longestGapNote">longest break between hits</small></div>
+      <div class="stat" id="longestGapStat"><span class="stat-l">Longest gap</span><b id="longestGap">—</b><small class="stat-d" id="longestGapNote">longest break between tokes</small></div>
       <div class="stat"><span class="stat-l">Current streak</span><b id="streakCurrent">0</b><small class="stat-d">days in a row, still running</small></div>
-      <div class="stat"><span class="stat-l">Longest streak</span><b id="streakLongest">0</b><small class="stat-d">days in a row with a hit</small></div>
+      <div class="stat"><span class="stat-l">Longest streak</span><b id="streakLongest">0</b><small class="stat-d">days in a row with a toke</small></div>
     </div>
     <div id="budgetBar" style="display:none;margin-top:10px">
       <div class="tiny" id="budgetText"></div>
@@ -892,7 +892,7 @@
       <div class="stat"><span class="stat-l">On hand</span><b id="stashGrams">—</b><small class="stat-d" id="stashLasts">nothing tracked yet</small></div>
       <div class="stat"><span class="stat-l">Nugs (whole)</span><b id="stashNugs">—</b><small class="stat-d">not ground yet</small></div>
       <div class="stat"><span class="stat-l">Ground (ready)</span><b id="stashGround">—</b><small class="stat-d">smoke this first</small></div>
-      <div class="stat"><span class="stat-l">Hits remaining</span><b id="stashHitsLeft">—</b><small class="stat-d">at your grams per hit</small></div>
+      <div class="stat"><span class="stat-l">Tokes remaining</span><b id="stashHitsLeft">—</b><small class="stat-d">at your grams per toke</small></div>
       <div class="stat"><span class="stat-l">Effective $/g</span><b id="stashPricePerG">—</b><small class="stat-d">what you actually paid</small></div>
       <div class="stat"><span class="stat-l">Total spent</span><b id="stashSpent">—</b><small class="stat-d">all reups</small></div>
     </div>
@@ -920,10 +920,10 @@
     <div id="weedMath" class="weed-math"></div>
 
     <div class="gph-row">
-      <span class="tiny" style="flex:1">Grams per hit</span>
-      <button class="gph-btn" onclick="adjustGph(-0.01)" aria-label="Decrease grams per hit by 0.01" title="−0.01">−</button>
+      <span class="tiny" style="flex:1">Grams per toke</span>
+      <button class="gph-btn" onclick="adjustGph(-0.01)" aria-label="Decrease grams per toke by 0.01" title="−0.01">−</button>
       <b id="gphDisplay">0.02g</b>
-      <button class="gph-btn" onclick="adjustGph(0.01)" aria-label="Increase grams per hit by 0.01" title="+0.01">+</button>
+      <button class="gph-btn" onclick="adjustGph(0.01)" aria-label="Increase grams per toke by 0.01" title="+0.01">+</button>
     </div>
     <p class="tiny" id="gphNote" style="margin-top:4px"></p>
 
@@ -1016,10 +1016,10 @@
     </div>
 
     <div class="set-pane" id="pane-logging" role="tabpanel" aria-labelledby="tab-logging" data-pane="logging">
-      <p class="tiny pane-intro">How hits are logged, and how your daily limit is measured.</p>
+      <p class="tiny pane-intro">How tokes are logged, and how your daily limit is measured.</p>
 <h2 style="font-size:13px;color:var(--muted);margin-top:6px">Daily limit</h2>
     <label>Limit unit</label>
-    <select id="setLimitUnit"><option value="grams">Grams (weight)</option><option value="hits">Hits (count)</option></select>
+    <select id="setLimitUnit"><option value="grams">Grams (weight)</option><option value="tokes">Tokes (count)</option></select>
     <label>Daily limit (0 = off) — in the unit above</label>
     <input type="number" id="setLimit" min="0" max="50" step="0.1" style="max-width:120px">
     <label>Warn at 80% (informational, never blocks)</label>
@@ -1027,14 +1027,14 @@
     <label>Carry over unused allowance</label>
     <select id="setGoalBank"><option value="0">Off</option><option value="1">On</option></select>
     <p class="tiny">When on, whatever you left unused yesterday is added to today’s allowance — never more than one extra day’s worth, and never more than the weed actually left on hand. It resets tomorrow.</p>
-    <label>Default grams per hit (used when you don't enter an amount)</label>
+    <label>Default grams per toke (used when you don't enter an amount)</label>
     <input type="number" id="setDefaultGrams" min="0" step="0.01" style="max-width:120px" value="0.02">
-    <p class="tiny">Since you don't know your hit count yet, the app estimates each hit at this weight. Adjust it as you learn your real per-hit amount. You can override per hit in “Add details”.</p>
-    <label>Default hit size</label>
+    <p class="tiny">Since you don't know your toke count yet, the app estimates each toke at this weight. Adjust it as you learn your real per-toke amount. You can override per toke in “Add details”.</p>
+    <label>Default toke size</label>
     <select id="setDefaultSize" onchange="setDefaultSize(this.value)">
       <option>Small</option><option>Medium</option><option>Large</option>
     </select>
-    <p class="tiny">Used when you tap Log a hit without opening Add details. If you only take small hits, set this to Small so your history is recorded the way you actually smoke.</p>
+    <p class="tiny">Used when you tap Log a toke without opening Add details. If you only take small tokes, set this to Small so your history is recorded the way you actually smoke.</p>
 
     
     <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Sleep window</h2>
@@ -1045,10 +1045,10 @@
       <div><label>Awake at</label><input type="time" id="setSleepEnd" value="10:00" onchange="sleepTouched()"></div>
     </div>
     <p class="tiny" id="sleepPreview" style="margin-top:6px"></p>
-    <p class="tiny">Time inside this window is skipped by "Since last", "Longest gap" and the average gap between hits, so a normal night doesn't read as a nine-hour break. Your hits are never changed.</p>
+    <p class="tiny">Time inside this window is skipped by "Since last", "Longest gap" and the average gap between tokes, so a normal night doesn't read as a nine-hour break. Your tokes are never changed.</p>
 
     <details class="set-adv">
-      <summary>Per-device grams per hit <span class="tiny">— optional</span></summary>
+      <summary>Per-device grams per toke <span class="tiny">— optional</span></summary>
       <p class="tiny">Override the global default for specific devices. Leave a field blank to use the global default above.</p>
       <div id="deviceGphList"></div>
     </details>
@@ -1110,13 +1110,13 @@
     <label>Monthly budget — 0 = off</label>
     <input type="number" id="setMonthlyBudget" min="0" step="1" placeholder="e.g. 200" style="max-width:120px">
     <p class="tiny">Adds a spend bar under your stats so the month's total has a target to compare against.</p>
-    <label>Alternative: cost per hit by size (<span class="cur-sym">$</span>) — used only if price/gram is 0</label>
+    <label>Alternative: cost per toke by size (<span class="cur-sym">$</span>) — used only if price/gram is 0</label>
     <div class="chart-row">
       <div><label>Small</label><input type="number" id="costSmall" step="0.01" min="0"></div>
       <div><label>Medium</label><input type="number" id="costMedium" step="0.01" min="0"></div>
       <div><label>Large</label><input type="number" id="costLarge" step="0.01" min="0"></div>
     </div>
-    <p class="tiny">Per-hit cost override can be set when logging.</p>
+    <p class="tiny">Per-toke cost override can be set when logging.</p>
 
         </div>
     <div class="set-pane" id="pane-habits" role="tabpanel" aria-labelledby="tab-habits" data-pane="habits">
@@ -1128,7 +1128,7 @@
       <button class="secondary" onclick="startTbreak()">Start break</button>
       <button class="secondary" onclick="endTbreak()">End break</button>
     </div>
-    <p class="tiny">While a break runs, a banner counts the days and shows how many hits were logged since it started — no blocking, no judgment.</p>
+    <p class="tiny">While a break runs, a banner counts the days and shows how many tokes were logged since it started — no blocking, no judgment.</p>
     <label>Evening check-in nudge (hour, 0 = off)</label>
     <input type="number" id="setCheckinHour" min="0" max="23" step="1" style="max-width:120px">
     <p class="tiny">After this hour, a banner asks for a check-in if you haven't done one that day (24-hour clock: 20 = 8pm).</p>
@@ -1180,7 +1180,7 @@
       <button class="secondary" onclick="exportCSV()">Export CSV</button>
       <button class="secondary" onclick="openReportModal()">🖨️ Print report</button>
     </div>
-    <p class="tiny" style="margin-top:14px">Clearing removes every hit, stash entry and check-in from this browser. It cannot be undone — save a backup first.</p>
+    <p class="tiny" style="margin-top:14px">Clearing removes every toke, stash entry and check-in from this browser. It cannot be undone — save a backup first.</p>
     <div class="row">
       <button class="secondary danger" onclick="clearAll()">Clear all data</button>
     </div>
@@ -1189,10 +1189,10 @@
 </div>
 
 <!-- ===== EDIT HIT MODAL ===== -->
-<div id="editHitModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Edit hit" onclick="if(event.target===this)closeModal('editHitModal')">
+<div id="editHitModal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Edit toke" onclick="if(event.target===this)closeModal('editHitModal')">
   <div class="sheet">
     <button class="sheet-close" aria-label="Close" onclick="closeModal('editHitModal')">×</button>
-    <h2>Edit hit</h2>
+    <h2>Edit toke</h2>
     <p class="tiny">Fix what was recorded. Tick the box below if the time is a guess.</p>
     <input type="hidden" id="editHitId">
     <label>When</label>
@@ -1234,7 +1234,7 @@
   <div class="sheet">
     <button class="sheet-close" aria-label="Close" onclick="closeModal('otherModal')">×</button>
     <h2>Vape &amp; concentrate</h2>
-    <p class="tiny">Flower is tracked from your bust-ups. These two are tracked from here: put what you have right now, and every vape or dab hit after this moment comes off it.</p>
+    <p class="tiny">Flower is tracked from your bust-ups. These two are tracked from here: put what you have right now, and every vape or dab toke after this moment comes off it.</p>
     <div class="chart-row">
       <div><label>Vape on hand (g)</label><input type="number" id="otherVape" step="0.01" min="0" placeholder="0.5"></div>
       <div><label>Concentrate on hand (g)</label><input type="number" id="otherConc" step="0.01" min="0" placeholder="1"></div>
@@ -1252,7 +1252,7 @@
   <div class="sheet">
     <button class="sheet-close" aria-label="Close" onclick="closeModal('countModal')">×</button>
     <h2>Count what's on hand</h2>
-    <p class="tiny">Weigh the jar and put the real numbers here. The app replays everything after this moment from your count instead of from estimated hits — so the card starts telling the truth again.</p>
+    <p class="tiny">Weigh the jar and put the real numbers here. The app replays everything after this moment from your count instead of from estimated tokes — so the card starts telling the truth again.</p>
     <div class="chart-row">
       <div><label>Whole buds (g)</label><input type="number" id="countNugs" step="0.01" min="0" oninput="updateCountTotal()"></div>
       <div><label>Already busted up / ground (g)</label><input type="number" id="countGround" step="0.01" min="0" oninput="updateCountTotal()"></div>
@@ -1269,7 +1269,7 @@
   <div class="sheet">
     <button class="sheet-close" aria-label="Close" onclick="closeModal('stashModal')">×</button>
     <h2>Stash</h2>
-    <p class="tiny" style="margin:0 0 12px">Add each purchase or gift. The app calculates your effective $/g, per-hit cost, and how many hits you have left — no math required.</p>
+    <p class="tiny" style="margin:0 0 12px">Add each purchase or gift. The app calculates your effective $/g, per-toke cost, and how many tokes you have left — no math required.</p>
 
     <h2 style="font-size:13px;color:var(--muted);margin-top:6px">Add entry</h2>
     <label>Type</label>
@@ -1355,7 +1355,7 @@
   </div>
 </div>
 
-<!-- Embedded lighter sound — plays on every "Log a hit" tap -->
+<!-- Embedded lighter sound — plays on every "Log a toke" tap -->
 <audio id="hitSound" preload="auto" src="hit-sound.wav"></audio>
 <canvas id="fireworksCanvas" aria-hidden="true"></canvas>
 
@@ -1367,7 +1367,7 @@
 /* ===================================================================
    1. CONSTANTS & DEFAULTS
    =================================================================== */
-const KEY        = "hitTrackerLogV2";        // hit entries (preserved from v1)
+const KEY        = "hitTrackerLogV2";        // toke entries (preserved from v1)
 const SETTINGS_K = "hitTrackerSettingsV2";   // app settings
 const CHECKIN_K  = "hitTrackerCheckinsV2";   // end-of-day check-ins
 const STASH_K    = "hitTrackerStashV2";      // stash entries (purchases + giveaways)
@@ -1386,10 +1386,10 @@ const BUSTUP_MIN_G = 0.1, BUSTUP_MAX_G = 28, BUSTUP_DEFAULT_G = 2;
 function defaultSettings(){
   return {
     version: 8,
-    limitUnit: "grams",       // "grams" (weight) or "hits" (count)
+    limitUnit: "grams",       // "grams" (weight) or "tokes" (count)
     dailyLimit: 1,            // in limitUnit — 1 gram/day default; 0 = off
     warnAt80: true,
-    defaultGramsPerHit: 0.02, // estimated grams per hit when amount not entered (refine as you learn)
+    defaultGramsPerHit: 0.02, // estimated grams per toke when amount not entered (refine as you learn)
     currency: "CAD",
     pricePerGram: 0,          // per-gram cost model (0 = fall back to costPerSize)
     costPerSize: {Small:0, Medium:0, Large:0},
@@ -1397,11 +1397,11 @@ function defaultSettings(){
     lastSize: "Medium",
     lastDevice: "Pipe",
     // Add-details panel remembers its own last pick, independent of one-tap logs
-    // (one-tap "Vape pen" hits would otherwise overwrite lastDevice and reset the panel).
+    // (one-tap "Vape pen" tokes would otherwise overwrite lastDevice and reset the panel).
     lastDetailsSize: null,
     lastDetailsDevice: null,
     quickButtons: [
-      {label:"Pipe hit",  size:"Medium", device:"Pipe",    amount:0.02},
+      {label:"Pipe toke",  size:"Medium", device:"Pipe",    amount:0.02},
       {label:"Vape pen",  size:"Small",  device:"Vape pen", amount:0.01},
       {label:"Dab",       size:"Small",  device:"Dab rig",  amount:0.01},
       {label:"Joint",     size:"Large",  device:"Joint",    amount:0.1}
@@ -1427,7 +1427,7 @@ function defaultSettings(){
     lastCheckinPrompt: null,// day key already nudged for
     lastWeighPrompt: null,  // day key we last asked for a weigh-in
     vapeOnHand: null,      // grams of vape counted, null = never counted
-    vapeAt: null,          // when it was counted; hits after this come off it
+    vapeAt: null,          // when it was counted; tokes after this come off it
     vapeReups: [],         // [{at, g, price}] so spend and $/g can be worked out
     concOnHand: null,      // grams of concentrate counted
     concAt: null,
@@ -1443,9 +1443,9 @@ function defaultSettings(){
     tagColors: {},          // #13: tag name -> #rrggbb
     goalBankEnabled: false, // #15: carry unused daily-goal allowance forward
     // "Add details" defaults you commit with the Save button. They are reloaded
-    // every restart and reused for every hit until you tap Save again. Size,
+    // every restart and reused for every toke until you tap Save again. Size,
     // amount, cost and the other rating sliders are intentionally NOT saved
-    // (they vary per hit). Moods are stored only when you actually moved the
+    // (they vary per toke). Moods are stored only when you actually moved the
     // slider, so an untouched default "3" never gets logged as fake data.
     savedDetails: {
       device: null, strain: null, note: null,
@@ -1457,7 +1457,7 @@ function defaultSettings(){
 /* ===================================================================
    2. STATE
    =================================================================== */
-let log = [];                 // array of hit entries
+let log = [];                 // array of toke entries
 let settings = defaultSettings();
 let checkins = [];            // [{date:"YYYY-MM-DD", sleep, mood, productivity, wellbeing}]
 let stash = [];               // [{id, date, type:"buy"|"giveaway", amount, price, source, note}]
@@ -1469,7 +1469,7 @@ let vaultKey = null;          // AES key, held in memory only while unlocked
 let vaultTimer = null;        // debounce handle for encrypted saves
 let calMonth = new Date();    // currently viewed calendar month
 let selectedSize = "Medium";  // current size selection in details panel
-let pendingTags = new Set();  // tags selected in details panel for next hit
+let pendingTags = new Set();  // tags selected in details panel for next toke
 let liveGapTimer = null;      // updates "time since last" each minute
 
 /* ===================================================================
@@ -1531,7 +1531,7 @@ function applyState(state){
     note: b.note || ""
   })) : [];
   settings = Object.assign(defaultSettings(), state.settings || {});
-  settings.limitUnit = (settings.limitUnit === "hits") ? "hits" : "grams";
+  settings.limitUnit = (settings.limitUnit === "tokes") ? "tokes" : "grams";
   settings.defaultGramsPerHit = +settings.defaultGramsPerHit || 0.02;
   settings.pricePerGram = +settings.pricePerGram || 0;
   settings.costPerSize = Object.assign({Small:0,Medium:0,Large:0}, settings.costPerSize || {});
@@ -1641,7 +1641,7 @@ function loadAll(){
   try { s = JSON.parse(localStorage.getItem(SETTINGS_K) || "{}"); } catch(e){ s = {}; }
   settings = Object.assign(defaultSettings(), s);
   // ensure nested objects exist + new fields have defaults
-  settings.limitUnit = (settings.limitUnit === "hits") ? "hits" : "grams";
+  settings.limitUnit = (settings.limitUnit === "tokes") ? "tokes" : "grams";
   settings.defaultGramsPerHit = +settings.defaultGramsPerHit || 0.02;
   settings.pricePerGram = +settings.pricePerGram || 0;
   settings.costPerSize = Object.assign({Small:0,Medium:0,Large:0}, settings.costPerSize || {});
@@ -1692,7 +1692,7 @@ function loadAll(){
   settings.goalBankEnabled = !!settings.goalBankEnabled;
   (settings.tags || []).forEach((t,i) => { if (!settings.tagColors[t]) settings.tagColors[t] = TAG_PALETTE[i % TAG_PALETTE.length]; });
 
-  // --- Migration: version < 5 had 0.1g/hit default (way too high for pipe hits) ---
+  // --- Migration: version < 5 had 0.1g/toke default (way too high for pipe tokes) ---
   // Version 6: force-refresh any quick button with a missing/invalid device
   const oldSettings = (s && typeof s === "object") ? s : {};
   const oldVer = +oldSettings.version || 0;
@@ -1982,8 +1982,8 @@ function toast(msg, action){
 function median(arr){ if(!arr.length) return 0; const s=arr.slice().sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2 ? s[m] : (s[m-1]+s[m])/2; }
 function startOfWeek(d){ const x=new Date(d); const day=x.getDay(); x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; } // Sun=0
 // --- Gram helpers ---
-// entryAmount returns grams for a hit: explicit amount, or estimated from defaultGramsPerHit.
-// Old entries (no amount) are estimated so totals stay useful while you learn your real per-hit weight.
+// entryAmount returns grams for a toke: explicit amount, or estimated from defaultGramsPerHit.
+// Old entries (no amount) are estimated so totals stay useful while you learn your real per-toke weight.
 function entryAmount(e){
   if (e.amount != null && !isNaN(e.amount) && e.amount > 0) return +e.amount;
   // #9: per-device override wins over the global default when no explicit amount
@@ -2076,12 +2076,12 @@ function logHit(opts){
   vib(12);
   playHitSound();
   pulseLogButton();
-  currentDay = dayKey(new Date()); // Entries view → today, so the new hit is visible
+  currentDay = dayKey(new Date()); // Entries view → today, so the new toke is visible
   renderAll();
   maybeShowLimitToast();
 }
 
-/* Play the lighter sound — called on every hit log */
+/* Play the lighter sound — called on every toke log */
 function playHitSound(){
   try {
     const snd = document.getElementById("hitSound");
@@ -2091,7 +2091,7 @@ function playHitSound(){
   } catch(e){ /* ignore */ }
 }
 
-/* Full-page fireworks layer for hit celebrations */
+/* Full-page fireworks layer for toke celebrations */
 let fwCanvas = null, fwCtx = null, fwParticles = [], fwRafId = 0, fwLastTime = 0, fwResizeBound = false;
 const FW_COLORS = ["#8ed46a", "#4caf50", "#ffb74d", "#42a5f5", "#ba68c8", "#fff176"];
 
@@ -2180,7 +2180,7 @@ function tickFireworks(now){
   else fwCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 }
 
-/* Pulse + sparkle animation on the Log a hit button */
+/* Pulse + sparkle animation on the Log a toke button */
 function pulseLogButton(){
   const btn = document.getElementById("logButton");
   if (!btn) return;
@@ -2211,7 +2211,7 @@ function pulseLogButton(){
 
 function undoLast(){
   if (!log.length){ toast("Nothing to undo"); return; }
-  log.pop(); saveLog(); vib(8); renderAll(); toast("Undid last hit");
+  log.pop(); saveLog(); vib(8); renderAll(); toast("Undid last toke");
 }
 function deleteEntry(id){
   const idx = log.findIndex(x => String(x.id) === String(id));
@@ -2220,7 +2220,7 @@ function deleteEntry(id){
   log.splice(idx, 1);
   saveLog(); renderAll();
   refreshOpenDay();
-  toast("Hit deleted", { label:"Undo", fn:()=>{
+  toast("Toke deleted", { label:"Undo", fn:()=>{
     log.splice(Math.min(idx, log.length), 0, removed);
     saveLog(); renderAll(); refreshOpenDay();
     toast("Restored");
@@ -2312,20 +2312,20 @@ function renderDetailsControls(){
 /* --- Saved details: persist device/strain/note/tags/before+after moods across
    restarts until the user taps "Save details" again. Size, amount, cost and
    the stress/energy/sleep/social sliders are intentionally NOT saved, since
-   they vary per hit. --- */
+   they vary per toke. --- */
 function saveDetails(){
   const device = document.getElementById("device").value || "Pipe";
   const strain = (document.getElementById("hitStrain").value || "").trim().slice(0, 60) || null;
   const note   = document.getElementById("note").value.trim();
   const tags   = Array.from(pendingTags);
   // Moods: only persist a slider the user actually moved. An untouched slider
-  // sits at 3 by default; saving that fake "3" would log it on every future hit.
+  // sits at 3 by default; saving that fake "3" would log it on every future toke.
   const moodBefore = ratingValue("moodBefore");
   const moodAfter  = ratingValue("moodAfter");
   settings.savedDetails = { device, strain, note, tags, moodBefore, moodAfter };
   settings.lastDetailsDevice = device; // keep the live pick in sync with the saved one
   saveSettingsObj();
-  toast("Details saved — reused for every hit until you save new ones");
+  toast("Details saved — reused for every toke until you save new ones");
   vib(12);
 }
 // Refill the Add-details panel from the saved defaults. Called at boot and
@@ -2481,22 +2481,22 @@ function renderLimit(){
   // detail = exactly where that number comes from.
   const limitLine = bank > 0
     ? (isGrams ? `${gramsFmt(limit)} limit + ${gramsFmt(bank)} spare from yesterday` : `${limit} limit + ${bank} spare from yesterday`)
-    : (isGrams ? `${gramsFmt(limit)} limit` : `${limit} hits`);
+    : (isGrams ? `${gramsFmt(limit)} limit` : `${limit} tokes`);
   const usedLine = isGrams
     ? (bank > 0 ? `${gramsFmt(used)} used of ${gramsFmt(effLimit)}` : `${gramsFmt(used)} used of ${gramsFmt(limit)} limit`)
-    : (bank > 0 ? `${used} of ${effLimit} hits used` : `${used} of ${limit} hits used`);
+    : (bank > 0 ? `${used} of ${effLimit} tokes used` : `${used} of ${limit} tokes used`);
   const remain = effLimit - used;
   if (u >= l){
     color = "var(--red)"; cls="at";
     msg = "Daily limit reached";
     detail = (bank > 0 ? `${usedLine} — ${limitLine}.` : `${usedLine}.`)
-      + " Logging still works — record every hit accurately.";
+      + " Logging still works — record every toke accurately.";
   } else if (settings.warnAt80 && u >= r4(effLimit*0.8)){
     color = "var(--amber)"; cls="warn";
     msg = "Close to your limit";
     detail = bank > 0 ? `${usedLine} — ${limitLine}.` : `${usedLine}.`;
   } else {
-    msg = isGrams ? `${gramsFmt(remain)} left today` : `${remain} hit${remain===1?"":"s"} left today`;
+    msg = isGrams ? `${gramsFmt(remain)} left today` : `${remain} toke${remain===1?"":"s"} left today`;
     detail = bank > 0 ? `${usedLine} — ${limitLine}.` : `${usedLine}.`;
   }
   arc.setAttribute("stroke", color);
@@ -2533,9 +2533,9 @@ function stashTotals(){
   const effPerG = net > 0 ? spent / net : 0;  // effective $/g across all buys
   return { bought, given, spent, net, effPerG };
 }
-// Grams on hand = net acquired − grams used (from hit log)
+// Grams on hand = net acquired − grams used (from toke log)
 function gramsOnHand(){
-  // Same figure the stash card shows, so "hits remaining" can't disagree with it.
+  // Same figure the stash card shows, so "tokes remaining" can't disagree with it.
   return stashBreakdown().totalOnHand;
 }
 // Total grams busted up (ground) from all bust-up markers
@@ -2552,7 +2552,7 @@ function stashBreakdown(){
   const smoked = log.reduce((s,x)=>s+entryAmount(x),0);
 
   // Replay the history in date order rather than subtracting lifetime totals.
-  // A hit only draws on weed that existed at that moment — ground first, then
+  // A toke only draws on weed that existed at that moment — ground first, then
   // whole nugs — so smoking from an earlier session can no longer eat into a
   // batch you ground afterwards.
   const events = [];
@@ -2561,7 +2561,7 @@ function stashBreakdown(){
     events.push({ t:+new Date(s.date), order:0, kind:(s.type === "giveaway" ? "give" : "buy"), amt });
   });
   bustups.forEach(b => events.push({ t:bustTs(b), order:1, kind:"bust", amt:+b.amount || 0 }));
-  log.forEach(x => events.push({ t:+new Date(x.time), order:2, kind:"hit", amt:entryAmount(x) }));
+  log.forEach(x => events.push({ t:+new Date(x.time), order:2, kind:"toke", amt:entryAmount(x) }));
   // A physical count resets the inventory at that moment; everything after it
   // replays from what you actually weighed rather than from old estimates.
   if (settings.inventoryFix){
@@ -2585,7 +2585,7 @@ function stashBreakdown(){
       ground += e.amt;                 // trust the batch you actually ground
       return;
     }
-    // Hits only ever come out of the grinder. You cannot smoke a whole nug,
+    // Tokes only ever come out of the grinder. You cannot smoke a whole nug,
     // so if the ground is short that is missing data (an unlogged bust-up),
     // not permission to help yourself from the jar.
     const g = Math.min(ground, e.amt);
@@ -2599,7 +2599,7 @@ function stashBreakdown(){
            smokedFromGround: fromGround, smokedFromNugs: 0, shortfall,
            nugsOnHand, groundReady, totalOnHand: nugsOnHand + groundReady, spent: t.spent };
 }
-// Estimated hits remaining at default grams-per-hit
+// Estimated tokes remaining at default grams-per-toke
 function hitsRemaining(){
   const onHand = gramsOnHand();
   const gph = +settings.defaultGramsPerHit || 0.02;
@@ -2613,8 +2613,8 @@ function effectivePricePerGram(){
   if (t.net > 0) return t.effPerG;
   return 0;
 }
-// costPerGram is used for hit cost calculation — falls back to the manual
-// settings.pricePerGram so past hits still get a cost estimate even with no stash.
+// costPerGram is used for toke cost calculation — falls back to the manual
+// settings.pricePerGram so past tokes still get a cost estimate even with no stash.
 function costPerGram(){
   const t = stashTotals();
   if (t.net > 0) return t.effPerG;
@@ -2652,7 +2652,7 @@ function renderCostStats(){
   setText("allTimeGrams",gramsFmt(log.reduce((s,x)=>s+entryAmount(x),0)));
 }
 
-// Distinct strain names seen in stash entries and hit log (for the pickers).
+// Distinct strain names seen in stash entries and toke log (for the pickers).
 function knownStrains(){
   const set = new Set();
   stash.forEach(s => { if (s.strain) set.add(s.strain); });
@@ -2663,14 +2663,14 @@ function renderStrainOptions(){
   const dl = document.getElementById("strainOptions");
   if (!dl) return;
   dl.innerHTML = knownStrains().map(s=>`<option value="${esc(s)}"></option>`).join("");
-  const hit = document.getElementById("hitStrain");
-  if (hit && !hit.value && settings.lastStrain) hit.placeholder = "last: " + settings.lastStrain;
+  const toke = document.getElementById("hitStrain");
+  if (toke && !toke.value && settings.lastStrain) toke.placeholder = "last: " + settings.lastStrain;
 }
 
 /* --- Stash card rendering --- */
 function renderStash(){
   const b = stashBreakdown();
-  const hits = hitsRemaining();
+  const tokes = hitsRemaining();
   const ppg = effectivePricePerGram();
   setText("stashGrams", gramsFmt(b.totalOnHand));
   setText("stashNugs", gramsFmt(b.nugsOnHand));
@@ -2691,14 +2691,14 @@ function renderStash(){
         : days > 400 ? "over a year at your recent rate"
         : `about ${days < 10 ? days.toFixed(1) : Math.round(days)} days at your recent rate`;
     } else if (perDay > 0){
-      const hits = Math.floor(onHand / Math.max(+settings.gramsPerHit || 0.02, 0.001));
-      lastsEl.textContent = `about ${hits} hit${hits===1?"":"s"} left`;
+      const tokes = Math.floor(onHand / Math.max(+settings.gramsPerHit || 0.02, 0.001));
+      lastsEl.textContent = `about ${tokes} toke${tokes===1?"":"s"} left`;
     } else {
-      lastsEl.textContent = "no hits in the last week to estimate from";
+      lastsEl.textContent = "no tokes in the last week to estimate from";
     }
   }
   setText("stashPricePerG", ppg>0 ? money(ppg) : "—");
-  setText("stashHitsLeft", b.totalOnHand > 0 ? hits : "—");
+  setText("stashHitsLeft", b.totalOnHand > 0 ? tokes : "—");
   setText("stashSpent", b.spent>0 ? money(b.spent) : "—");
 
   // Low-stash warning
@@ -2744,7 +2744,7 @@ function renderStash(){
     const tracking = stash.length > 0 || bustups.length > 0;
     if (tracking && b.shortfall > 0.02){
       // Missing ground beats "running low" — say the real thing.
-      const txt = `<b>${gramsFmt(b.shortfall)} of hits has no grind logged before it.</b>`
+      const txt = `<b>${gramsFmt(b.shortfall)} of tokes has no grind logged before it.</b>`
         + (b.nugsOnHand > 0.05 ? ` You have ${gramsFmt(b.nugsOnHand)} in whole buds.` : "")
         + " Either a grind was not logged, or the ground ran out.";
       document.getElementById("groundNudgeText").innerHTML = txt + " Bust up " + bustupLabel() + "?";
@@ -2768,10 +2768,10 @@ function renderStash(){
   const mathEl = document.getElementById("weedMath");
   if (mathEl){
     if (stash.length === 0){
-      mathEl.innerHTML = '<p class="tiny" style="margin:0;color:var(--muted)">No stash yet. Tap “Manage stash” to add your oz (28g) + any gifts. The app calculates $/g and per-hit cost automatically.</p>';
+      mathEl.innerHTML = '<p class="tiny" style="margin:0;color:var(--muted)">No stash yet. Tap “Manage stash” to add your oz (28g) + any gifts. The app calculates $/g and per-toke cost automatically.</p>';
     } else {
       const gph = +settings.defaultGramsPerHit || 0.02;
-      const perHit = ppg > 0 ? ` &nbsp;<span class="tiny">${money(ppg)}/g × ${gph}g ≈ ${money(ppg*gph)}/hit</span>` : "";
+      const perHit = ppg > 0 ? ` &nbsp;<span class="tiny">${money(ppg)}/g × ${gph}g ≈ ${money(ppg*gph)}/toke</span>` : "";
       mathEl.innerHTML =
         (settings.inventoryFix
           ? `<div class="row-line"><span class="lbl">Counted ${new Date(settings.inventoryFix.at).toLocaleDateString()}</span><span class="val">${gramsFmt(settings.inventoryFix.total)}</span></div>`
@@ -2780,7 +2780,7 @@ function renderStash(){
         `<div class="row-line"><span class="lbl">» Acquired (reups)</span><span class="val">${gramsFmt(b.acquired)}</span></div>` +
         (b.given > 0 ? `<div class="row-line"><span class="lbl">− Given away / sold</span><span class="val">${gramsFmt(b.given)}</span></div>` : "") +
         `<div class="row-line"><span class="lbl">− Busted up → ground</span><span class="val">${gramsFmt(b.busted)}</span></div>` +
-        (b.shortfall > 0.02 ? `<div class="row-line"><span class="lbl">Hits with no grind logged before them</span><span class="val">${gramsFmt(b.shortfall)}</span></div>` : "") +
+        (b.shortfall > 0.02 ? `<div class="row-line"><span class="lbl">Tokes with no grind logged before them</span><span class="val">${gramsFmt(b.shortfall)}</span></div>` : "") +
         `<div class="row-line total"><span class="lbl">= Nugs on hand</span><span class="val">${gramsFmt(b.nugsOnHand)}</span></div>` +
         // Stage 2: ground weed (ready to smoke) — only when you actually grind
         (b.busted > 0 ?
@@ -2790,19 +2790,19 @@ function renderStash(){
           : "") +
         // Grand total
         `<div class="row-line total" style="border-top:2px solid var(--border2);margin-top:6px;padding-top:8px;font-size:16px"><span class="lbl">Total on hand</span><span class="val" style="font-size:18px">${gramsFmt(b.totalOnHand)}</span></div>` +
-        (b.shortfall > 0.02 ? `<div class="tiny" style="margin-top:6px">Those hits have no grind to come from, so they are left out of the ground count. If that is old history, add the grinds you did with “Mark bust-up”, or tap “Count it” once to set what you really have.</div>` : "") +
+        (b.shortfall > 0.02 ? `<div class="tiny" style="margin-top:6px">Those tokes have no grind to come from, so they are left out of the ground count. If that is old history, add the grinds you did with “Mark bust-up”, or tap “Count it” once to set what you really have.</div>` : "") +
         (perHit ? `<div class="tiny" style="margin-top:6px">${perHit}</div>` : "");
     }
   }
 
-  // grams-per-hit quick-adjust display
+  // grams-per-toke quick-adjust display
   const gph = +settings.defaultGramsPerHit || 0.02;
   setText("gphDisplay", gramsFmt(gph));
   const hitsPerGram = gph > 0 ? Math.round(1/gph) : 0;
-  setText("gphNote", hitsPerGram > 0 ? `≈ ${hitsPerGram} hits per gram` : "");
+  setText("gphNote", hitsPerGram > 0 ? `≈ ${hitsPerGram} tokes per gram` : "");
 }
 
-// Quick-adjust grams-per-hit from the stash card (no need to open Settings)
+// Quick-adjust grams-per-toke from the stash card (no need to open Settings)
 function adjustGph(delta){
   let v = +settings.defaultGramsPerHit || 0.02;
   v = Math.round((v + delta) * 1000) / 1000; // round to 0.001
@@ -2890,7 +2890,7 @@ function deleteStashEntry(id){
   }});
 }
 
-/* --- Edit a recorded hit (device, size, grams, strain, note) --- */
+/* --- Edit a recorded toke (device, size, grams, strain, note) --- */
 function openHitEdit(id){
   const e = log.find(x => String(x.id) === String(id));
   if (!e) return;
@@ -2934,7 +2934,7 @@ function saveHitEdit(){
   saveLog();
   closeModal("editHitModal");
   renderAll(); refreshOpenDay();
-  toast("Hit updated");
+  toast("Toke updated");
 }
 
 /* --- Physical count: your scale beats the app's estimates --- */
@@ -2974,13 +2974,13 @@ function saveCount(){
   // Calibrate: compare what the batch should have taken with what it really took.
   const est = calibrationEstimate();
   if (est){
-    const msg = "Your hits look like " + gramsFmt(est.implied) + " each, not " + gramsFmt(est.current)
-      + " (" + est.hits + " hits since your last bust-up).\n\nUpdate the estimate?";
+    const msg = "Your tokes look like " + gramsFmt(est.implied) + " each, not " + gramsFmt(est.current)
+      + " (" + est.tokes + " tokes since your last bust-up).\n\nUpdate the estimate?";
     if (confirm(msg)){
       settings.defaultGramsPerHit = est.implied;
       saveSettingsObj();
       renderAll();
-      toast("Grams per hit set to " + gramsFmt(est.implied));
+      toast("Grams per toke set to " + gramsFmt(est.implied));
       return;
     }
   }
@@ -2992,7 +2992,7 @@ function saveCount(){
   }});
 }
 
-// How many grams a default hit really is, from the latest batch + count.
+// How many grams a default toke really is, from the latest batch + count.
 function calibrationEstimate(){
   if (!settings.inventoryFix || !bustups.length) return null;
   const last = [...bustups].sort((a,b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))[0];
@@ -3019,7 +3019,7 @@ function calibrationEstimate(){
   if (!(implied > 0.001 && implied < 2)) return null;
   const current = +settings.defaultGramsPerHit || 0.02;
   if (implied > current * 0.8 && implied < current * 1.25) return null;   // close enough
-  return { implied: r4(implied), hits: defaultHits, current };
+  return { implied: r4(implied), tokes: defaultHits, current };
 }
 
 // Ask for a weigh-in when the last count is old, or when there has never been one.
@@ -3128,7 +3128,7 @@ function renderStashList(){
    =================================================================== */
 // Bust-ups are a separate tracking layer. They mark when you grind a batch
 // (usually 2g) without affecting the stash or the limit ring — those stay
-// driven by your hit log so there's no double-counting.
+// driven by your toke log so there's no double-counting.
 function bustupsForDate(dateKey){ return bustups.filter(b=>b.date===dateKey); }
 // When did this batch happen? Timestamped for today's, noon for backfilled days.
 function bustTs(b){ return +new Date(b.time || (b.date + "T12:00:00")); }
@@ -3182,14 +3182,14 @@ function deleteBustup(id){
 }
 
 /* --- Log past smoking (backfill a day with total grams smoked) --- */
-// Creates a single hit entry dated to the selected day with the entered gram amount.
+// Creates a single toke entry dated to the selected day with the entered gram amount.
 // Useful for catching up when you start tracking mid-stash.
 function logPastSmoking(dateKey){
   const amount = +document.getElementById("pastSmokeAmount").value || 0;
   const device = document.getElementById("pastSmokeDevice").value;
   const note = document.getElementById("pastSmokeNote").value.trim();
   if (amount <= 0){ toast("Enter grams smoked"); return; }
-  // Date the hit to noon on the selected day
+  // Date the toke to noon on the selected day
   const time = new Date(dateKey + "T12:00:00").toISOString();
   log.push(migrateEntry({
     id: Date.now() + Math.random(),
@@ -3310,7 +3310,7 @@ function calTier(val, unit){
     if (val <= 1.2) return 3;
     return 4;
   }
-  // hits
+  // tokes
   if (val <= 0) return 0;
   if (val <= 2) return 1;
   if (val <= 4) return 2;
@@ -3327,9 +3327,9 @@ function calRender(){
   const first = new Date(y,m,1);
   const firstDow = first.getDay(); // Sun=0
   const days = new Date(y,m+1,0).getDate();
-  // per-day values for this month: {hits, grams}
+  // per-day values for this month: {tokes, grams}
   const dayVals = {};
-  log.forEach(x=>{ const k=dayKey(x.time); if (k.startsWith(`${y}-${String(m+1).padStart(2,"0")}-`)){ if(!dayVals[k]) dayVals[k]={hits:0,grams:0}; dayVals[k].hits++; dayVals[k].grams+=entryAmount(x); } });
+  log.forEach(x=>{ const k=dayKey(x.time); if (k.startsWith(`${y}-${String(m+1).padStart(2,"0")}-`)){ if(!dayVals[k]) dayVals[k]={tokes:0,grams:0}; dayVals[k].tokes++; dayVals[k].grams+=entryAmount(x); } });
   // bust-up days this month (for the • marker)
   const bustupDays = {};
   bustups.forEach(b=>{ if (b.date.startsWith(`${y}-${String(m+1).padStart(2,"0")}-`)) bustupDays[b.date]=true; });
@@ -3347,30 +3347,30 @@ function calRender(){
   let monthHits=0, monthGrams=0, monthBustups=0;
   for (let d=1; d<=days; d++){
     const k=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const v=dayVals[k]||{hits:0,grams:0};
-    monthHits+=v.hits; monthGrams+=v.grams;
+    const v=dayVals[k]||{tokes:0,grams:0};
+    monthHits+=v.tokes; monthGrams+=v.grams;
     const hasBustup = bustupDays[k]; if (hasBustup) monthBustups++;
     const hasReup = reupDays[k] != null;
-    // Colour always tracks grams, because one dab and one vape hit are not the
-    // same quantity. Hit count is the big number; colour is how much was used.
+    // Colour always tracks grams, because one dab and one vape toke are not the
+    // same quantity. Toke count is the big number; colour is how much was used.
     const tier = calTier(v.grams, "grams");
-    const show = v.hits>0;
+    const show = v.tokes>0;
     // One legible number per day. The heat colour still conveys magnitude,
-    // so a 3-hit day and a 40-hit day read instantly without counting icons.
-    const hitsWord = `${v.hits} hit${v.hits===1?"":"s"}`;
+    // so a 3-toke day and a 40-toke day read instantly without counting icons.
+    const hitsWord = `${v.tokes} toke${v.tokes===1?"":"s"}`;
     const countHtml = show
-      ? `<span class="cal-hits${v.hits >= 100 ? " sm" : ""}">${v.hits}</span>`
+      ? `<span class="cal-tokes${v.tokes >= 100 ? " sm" : ""}">${v.tokes}</span>`
         + (isGrams ? `<span class="cal-g">${gramsFmt(v.grams)}</span>` : "")
       : "";
-    const cellTitle = show ? `${hitsWord} \u00b7 ${gramsFmt(v.grams)}` : "No hits";
+    const cellTitle = show ? `${hitsWord} \u00b7 ${gramsFmt(v.grams)}` : "No tokes";
     html+=`<div class="cal-cell cal-tier-${tier} ${k===todayK?"today":""}" title="${cellTitle}" aria-label="${d}: ${cellTitle}" onclick="openDay('${k}')" oncontextmenu="event.preventDefault();openReupEditor('${k}')"><span class="n">${d}</span>${countHtml}${hasBustup?`<span class="cal-x"><svg aria-hidden="true"><use href="#ico-grind"/></svg></span>`:""}${hasReup?`<span class="cal-reup"><svg aria-hidden="true"><use href="#ico-reup"/></svg></span>`:""}${vapeDays[k]?`<span class="cal-vape"><svg aria-hidden="true"><use href="#ico-vape"/></svg></span>`:""}${concDays[k]?`<span class="cal-conc"><svg aria-hidden="true"><use href="#ico-conc"/></svg></span>`:""}</div>`;
   }
   document.getElementById("calGrid").innerHTML = html;
   const bustupTxt = monthBustups>0 ? ` • ${monthBustups} bust-up${monthBustups===1?"":"s"}` : "";
   const reupTxt = monthReupGrams>0 ? ` • ${gramsFmt(monthReupGrams)} reup` : "";
   const totalTxt = isGrams
-    ? `Month: ${gramsFmt(monthGrams)} • ${monthHits} hits${bustupTxt}${reupTxt} • ${money(monthCostForMonth(y,m))}`
-    : `Month: ${monthHits} hit${monthHits===1?"":"s"}${bustupTxt}${reupTxt} • ${money(monthCostForMonth(y,m))}`;
+    ? `Month: ${gramsFmt(monthGrams)} • ${monthHits} tokes${bustupTxt}${reupTxt} • ${money(monthCostForMonth(y,m))}`
+    : `Month: ${monthHits} toke${monthHits===1?"":"s"}${bustupTxt}${reupTxt} • ${money(monthCostForMonth(y,m))}`;
   document.getElementById("calMonthTotal").textContent = totalTxt;
   // Spell out what each heat colour means instead of adjectives like "heavy".
   const lg = ["0g","\u2264 0.3g","\u2264 0.7g","\u2264 1.2g","> 1.2g"];
@@ -3393,10 +3393,10 @@ function openDay(k){
   const dayG = dayEntries.reduce((s,x)=>s+entryAmount(x),0);
   const dayReupG = dayReups.reduce((s,r)=>s+(+r.amount||0),0);
   // One headline instead of five boxes: the count and the grams are the answer,
-  // everything else is a footnote. Singular/plural matters here ("1 hit").
+  // everything else is a footnote. Singular/plural matters here ("1 toke").
   const dayCost = dayEntries.reduce((s,x)=>s+hitCost(x),0);
   const headBits = [];
-  headBits.push(`${dayEntries.length} hit${dayEntries.length===1?"":"s"}`);
+  headBits.push(`${dayEntries.length} toke${dayEntries.length===1?"":"s"}`);
   headBits.push(gramsFmt(dayG));
   if (dayCost) headBits.push(money(dayCost));
   const footBits = [];
@@ -3457,7 +3457,7 @@ function openDay(k){
     html += `<p class="tiny" style="margin-bottom:10px">No check-in for this day.</p>`;
   }
   if (!dayEntries.length){
-    html += `<p class="muted" style="font-size:13px">No hits logged this day.</p>`;
+    html += `<p class="muted" style="font-size:13px">No tokes logged this day.</p>`;
   } else {
     html += dayEntries.map(x=>{
       const d=new Date(x.time);
@@ -3477,7 +3477,7 @@ function openDay(k){
         ${x.note?`<span class="entry-note">${esc(x.note)}</span>`:""}
         ${extras.length?`<small class="muted">${esc(extras.join(" · "))}</small>`:""}
         ${tagline?`<div class="tagline">${tagline}</div>`:""}
-      </div><div class="entry-acts"><button class="del-btn" style="color:var(--muted)" onclick="openHitEdit('${x.id}')" aria-label="Edit hit">✎</button><button class="del-btn" onclick="deleteEntry('${x.id}');openDay('${k}')" aria-label="Delete hit">✕</button></div></div>`;
+      </div><div class="entry-acts"><button class="del-btn" style="color:var(--muted)" onclick="openHitEdit('${x.id}')" aria-label="Edit toke">✎</button><button class="del-btn" onclick="deleteEntry('${x.id}');openDay('${k}')" aria-label="Delete toke">✕</button></div></div>`;
     }).join("");
   }
   document.getElementById("dayModalBody").innerHTML = html;
@@ -3513,7 +3513,7 @@ function makeLineChart(id,labels,data,color,label,decimal){
     data:{labels,datasets:[{label:label||"",data,borderColor:color,backgroundColor:color+"22",fill:true,tension:.3,pointRadius:2}]},
     options:{responsive:true,plugins:{legend:{display:false}},scales:{
       y:{beginAtZero:true,
-         title:{display:true,text:decimal?"grams":"hits",color:"#7d878d",font:{size:10}},
+         title:{display:true,text:decimal?"grams":"tokes",color:"#7d878d",font:{size:10}},
          ticks:{precision:decimal?undefined:0,color:"#9aa3a8"},grid:{color:"#262b30"}},
       x:{ticks:{color:"#9aa3a8",maxRotation:0,autoSkip:true},grid:{display:false}}}}
   });
@@ -3531,7 +3531,7 @@ function makeBarChart(id,labels,data,color,horizontal,decimal){
         ? {x:{beginAtZero:true,ticks:{precision:decimal?undefined:0,color:"#9aa3a8"},grid:{color:"#262b30"}},
            y:{ticks:{color:"#9aa3a8"},grid:{display:false}}}
         : {y:{beginAtZero:true,
-             title:{display:true,text:decimal?"grams":"hits",color:"#7d878d",font:{size:10}},
+             title:{display:true,text:decimal?"grams":"tokes",color:"#7d878d",font:{size:10}},
              ticks:{precision:decimal?undefined:0,color:"#9aa3a8"},grid:{color:"#262b30"}},
            x:{ticks:{color:"#9aa3a8",maxRotation:0,autoSkip:true},grid:{display:false}}}
     }
@@ -3551,7 +3551,7 @@ function renderCharts(){
   if (!window.Chart){ document.getElementById("noChartWarn").classList.remove("hidden"); return; }
   const isGrams = usingGrams();
   const decimal = isGrams;
-  const fmt = v => isGrams ? gramsFmt(v) : `${v} hit${v===1?"":"s"}`;
+  const fmt = v => isGrams ? gramsFmt(v) : `${v} toke${v===1?"":"s"}`;
   const sum = arr => arr.reduce((a,b)=>a+b,0);
   // 14-day
   if (isGrams){
@@ -3561,9 +3561,9 @@ function renderCharts(){
     setNote("noteDaily", t ? `${gramsFmt(t)} over 14 days (${gramsFmt(t/14)} a day)` + (bi>=0?` · biggest day ${g14.labels[bi]} at ${gramsFmt(g14.grams[bi])}`:"") : "Nothing logged in the last 14 days.");
   } else {
     const d14=countByDay(14);
-    makeLineChart("dailyChart",d14.labels,d14.counts,"#4caf50","Hits",false);
+    makeLineChart("dailyChart",d14.labels,d14.counts,"#4caf50","Tokes",false);
     const t=sum(d14.counts), bi=topIndex(d14.counts);
-    setNote("noteDaily", t ? `${t} hit${t===1?"":"s"} over 14 days (${(t/14).toFixed(1)} a day)` + (bi>=0?` · biggest day ${d14.labels[bi]} at ${d14.counts[bi]}`:"") : "Nothing logged in the last 14 days.");
+    setNote("noteDaily", t ? `${t} toke${t===1?"":"s"} over 14 days (${(t/14).toFixed(1)} a day)` + (bi>=0?` · biggest day ${d14.labels[bi]} at ${d14.counts[bi]}`:"") : "Nothing logged in the last 14 days.");
   }
   // 30-day trend
   if (isGrams){
@@ -3573,9 +3573,9 @@ function renderCharts(){
     setNote("noteTrend", t ? `${gramsFmt(t)} over 30 days` + (bi>=0?` · biggest day ${g30.labels[bi]} at ${gramsFmt(g30.grams[bi])}`:"") : "Nothing logged in the last 30 days.");
   } else {
     const d30=countByDay(30);
-    makeLineChart("trendChart",d30.labels,d30.counts,"#42a5f5","Hits",false);
+    makeLineChart("trendChart",d30.labels,d30.counts,"#42a5f5","Tokes",false);
     const t=sum(d30.counts), bi=topIndex(d30.counts);
-    setNote("noteTrend", t ? `${t} hit${t===1?"":"s"} over 30 days` + (bi>=0?` · biggest day ${d30.labels[bi]} at ${d30.counts[bi]}`:"") : "Nothing logged in the last 30 days.");
+    setNote("noteTrend", t ? `${t} toke${t===1?"":"s"} over 30 days` + (bi>=0?` · biggest day ${d30.labels[bi]} at ${d30.counts[bi]}`:"") : "Nothing logged in the last 30 days.");
   }
   // weekly totals last 12 weeks
   const wLabels=[], wData=[];
@@ -3590,16 +3590,16 @@ function renderCharts(){
   makeBarChart("weeklyChart",wLabels,wData,"#7e57c2",false,decimal);
   {
     const t=sum(wData), bi=topIndex(wData);
-    setNote("noteWeekly", t ? `${fmt(t)} over 12 weeks · best week starting ${wLabels[bi]} (${fmt(wData[bi])})` : "No hits in the last 12 weeks. Each bar is one Sunday-to-Saturday week.");
+    setNote("noteWeekly", t ? `${fmt(t)} over 12 weeks · best week starting ${wLabels[bi]} (${fmt(wData[bi])})` : "No tokes in the last 12 weeks. Each bar is one Sunday-to-Saturday week.");
   }
-  // by hour — follows the grams/hits setting instead of always counting hits
+  // by hour — follows the grams/tokes setting instead of always counting tokes
   const hourVals=Array(24).fill(0);
   log.forEach(x=>{ if (x.approx) return; hourVals[new Date(x.time).getHours()] += isGrams ? entryAmount(x) : 1; });
   const hourLabels=hourVals.map((_,i)=>hourLabel(i));
   makeBarChart("hourChart",hourLabels,hourVals,"#26a69a",false,decimal);
   {
     const bi=topIndex(hourVals);
-    setNote("noteHour", bi>=0 ? `Busiest around ${hourRange(bi)} — ${fmt(hourVals[bi])} in that hour.` : "No hits logged yet.");
+    setNote("noteHour", bi>=0 ? `Busiest around ${hourRange(bi)} — ${fmt(hourVals[bi])} in that hour.` : "No tokes logged yet.");
   }
   // by weekday (Sun-first, matching the calendar)
   const dowVals=Array(7).fill(0);
@@ -3608,7 +3608,7 @@ function renderCharts(){
   makeBarChart("dowChart",dowNames,dowVals,"#ef5350",false,decimal);
   {
     const bi=topIndex(dowVals);
-    setNote("noteDow", bi>=0 ? `Heaviest on ${dowNames[bi]} — ${fmt(dowVals[bi])} that day of the week.` : "No hits logged yet.");
+    setNote("noteDow", bi>=0 ? `Heaviest on ${dowNames[bi]} — ${fmt(dowVals[bi])} that day of the week.` : "No tokes logged yet.");
   }
   // by device
   const dev={}; log.forEach(x=>{const d=x.device||"Unknown"; dev[d]=(dev[d]||0)+(isGrams?entryAmount(x):1);});
@@ -3618,7 +3618,7 @@ function renderCharts(){
     const tot = de.reduce((a,x)=>a+x[1],0);
     setNote("noteDevice", de.length && tot > 0
       ? `${de[0][0]} is ${Math.round(de[0][1]/tot*100)}% of it (${fmt(de[0][1])})${de.length>1?` · ${de.length} methods in use`:""}`
-      : "No hits logged yet.");
+      : "No tokes logged yet.");
   }
   // by size
   const sz={}; log.forEach(x=>{const s=x.size||"Unknown"; sz[s]=(sz[s]||0)+(isGrams?entryAmount(x):1);});
@@ -3628,7 +3628,7 @@ function renderCharts(){
     const tot = se.reduce((a,x)=>a+x[1],0);
     setNote("noteSize", se.length && tot > 0
       ? `${se[0][0]} accounts for ${Math.round(se[0][1]/tot*100)}% (${fmt(se[0][1])})${se.length>1?` · sizes logged: ${se.map(x=>x[0]).join(", ")}`:""}`
-      : "No hits logged yet.");
+      : "No tokes logged yet.");
   }
 }
 
@@ -3654,11 +3654,11 @@ function renderWeeklyReport(){
       changeTxt = `You used ${Math.abs(pct)}% ${dir} this week (${gramsFmt(twG)}) versus last week (${gramsFmt(lwG)}).`;
     }
   } else {
-    if (lwHits===0) changeTxt = twHits>0 ? `You logged ${twHits} hit${twHits===1?"":"s"} this week (none last week).` : "No hits logged either week.";
+    if (lwHits===0) changeTxt = twHits>0 ? `You logged ${twHits} toke${twHits===1?"":"s"} this week (none last week).` : "No tokes logged either week.";
     else {
       const pct=Math.round((twHits-lwHits)/lwHits*100);
       const dir = pct>0 ? "more" : pct<0 ? "fewer" : "the same number of";
-      changeTxt = `You logged ${Math.abs(pct)}% ${dir} hit${twHits===1?"":"s"} this week (${twHits}) versus last week (${lwHits}).`;
+      changeTxt = `You logged ${Math.abs(pct)}% ${dir} toke${twHits===1?"":"s"} this week (${twHits}) versus last week (${lwHits}).`;
     }
   }
   let costTxt = "";
@@ -3670,7 +3670,7 @@ function renderWeeklyReport(){
   const times=thisWeek.map(x=>new Date(x.time).getTime()).sort((a,b)=>a-b);
   let avgGap=null;
   if (times.length>1){ let s=0; for(let i=1;i<times.length;i++) s+=activeMs(times[i-1], times[i]); avgGap=s/(times.length-1); }
-  const gapTxt = avgGap!=null ? `<div class="tiny">Average gap between hits this week: ${fmtDuration(avgGap)}. • ${twHits} hits this week.</div>` : "";
+  const gapTxt = avgGap!=null ? `<div class="tiny">Average gap between tokes this week: ${fmtDuration(avgGap)}. • ${twHits} tokes this week.</div>` : "";
   document.getElementById("weeklyReport").innerHTML = `<p style="font-size:14px;margin:0 0 4px">${esc(changeTxt)}</p>${costTxt}${gapTxt}<p class="tiny" style="margin-top:8px">Factual summary only — no judgment.</p>`;
 }
 
@@ -3700,7 +3700,7 @@ function renderInsights(){
   // Label, value, then a caption that says what the value actually counts.
   const cell=(l,v,d)=>`<div class="stat"><span class="stat-l">${l}</span><b>${v}</b>${d?`<small class="stat-d">${d}</small>`:""}</div>`;
   const n = log.length;
-  const share = c => n ? `${c} of ${n} hit${n===1?"":"s"} (${Math.round(c/n*100)}%)` : "";
+  const share = c => n ? `${c} of ${n} toke${n===1?"":"s"} (${Math.round(c/n*100)}%)` : "";
   const strainHits = topStrain
     ? log.filter(x => x.strain === topStrain[0]).length : 0;
 
@@ -3708,13 +3708,13 @@ function renderInsights(){
   const scopeEl = document.getElementById("patScope");
   if (scopeEl){
     if (!n){
-      scopeEl.textContent = "No hits logged yet — these fill in as you log.";
+      scopeEl.textContent = "No tokes logged yet — these fill in as you log.";
     } else {
       const ts = log.map(x=>+new Date(x.time)).sort((a,b)=>a-b);
       const f = t => new Date(t).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
       const sameDay = dayKey(new Date(ts[0])) === dayKey(new Date(ts[ts.length-1]));
       const range = sameDay ? f(ts[0]) : `${f(ts[0])} – ${f(ts[ts.length-1])}`;
-      scopeEl.textContent = `Across all ${n} hit${n===1?"":"s"} · ${range}`;
+      scopeEl.textContent = `Across all ${n} toke${n===1?"":"s"} · ${range}`;
     }
   }
 
@@ -3722,8 +3722,8 @@ function renderInsights(){
     cell("Busiest hour", n?hourRange(busiest):"—", n?share(hourCounts[busiest]):"")+
     cell("Most-used method", topDev?topDev[0]:"—", topDev?share(topDev[1]):"")+
     cell("Most common size", topSz?topSz[0]:"—", topSz?share(topSz[1]):"")+
-    cell("Avg gap between hits", avgGap!=null?fmtDuration(avgGap):"—", "awake time, sleep excluded")+
-    cell("Top strain", topStrain?topStrain[0]:"—", topStrain?`${gramsFmt(topStrain[1])} over ${strainHits} hit${strainHits===1?"":"s"}`:"");
+    cell("Avg gap between tokes", avgGap!=null?fmtDuration(avgGap):"—", "awake time, sleep excluded")+
+    cell("Top strain", topStrain?topStrain[0]:"—", topStrain?`${gramsFmt(topStrain[1])} over ${strainHits} toke${strainHits===1?"":"s"}`:"");
 }
 // "7 PM - 8 PM" reads better than "7p" when the label is a whole hour bucket.
 function hourRange(h){
@@ -3747,7 +3747,7 @@ function renderCorrelations(){
     const ci=checkinFor(k);
     if (ci) days.push({n, ci});
   }
-  if (days.length<4){ el.innerHTML='<p class="muted" style="font-size:13px">Not enough check-ins yet. Log hits and daily check-ins for a few days to see how mood/sleep relate to your usage.</p>'; return; }
+  if (days.length<4){ el.innerHTML='<p class="muted" style="font-size:13px">Not enough check-ins yet. Log tokes and daily check-ins for a few days to see how mood/sleep relate to your usage.</p>'; return; }
   const med=median(days.map(d=>d.n));
   const higher=days.filter(d=>d.n>med), lower=days.filter(d=>d.n<=med);
   if (!higher.length || !lower.length){ el.innerHTML='<p class="muted" style="font-size:13px">Need a mix of higher- and lower-use days with check-ins.</p>'; return; }
@@ -3760,7 +3760,7 @@ function renderCorrelations(){
   const caveat = N < 8 ? "n = "+N+" — very small sample; treat as anecdotal, not a pattern."
               : N < 16 ? "n = "+N+" — small sample; treat with caution."
               : "";
-  el.innerHTML = `<p class="tiny" style="margin-bottom:8px">Median daily ${isGrams?"grams":"hits"} (last 30d): ${medTxt}. Higher-use = above median. (n = ${N} check-in day${N===1?"":"s"})</p>`+
+  el.innerHTML = `<p class="tiny" style="margin-bottom:8px">Median daily ${isGrams?"grams":"tokes"} (last 30d): ${medTxt}. Higher-use = above median. (n = ${N} check-in day${N===1?"":"s"})</p>`+
     `<div class="grid">`+
     fields.map(([k,l])=>`<div class="stat small"><b>${avg(higher,k)} / ${avg(lower,k)}</b><span>${l}: higher / lower</span></div>`).join("")+
     `</div>`+
@@ -3887,7 +3887,7 @@ function renderEntries(){
   const setNav = (prevOn, nextOn) => { if(prevBtn) prevBtn.disabled = !prevOn; if(nextBtn) nextBtn.disabled = !nextOn; if(picker) picker.disabled = !days.length; };
 
   if (!log.length){
-    el.innerHTML='<p class="muted" style="font-size:13px">No entries yet — log your first hit!</p>';
+    el.innerHTML='<p class="muted" style="font-size:13px">No entries yet — log your first toke!</p>';
     setHeader("—", "", ""); setNav(false, false);
     return;
   }
@@ -3908,15 +3908,15 @@ function renderEntries(){
   setHeader(
     dDate.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric", year:"numeric"}) + (isToday ? " · today" : ""),
     dayEntries.length
-      ? `${dayEntries.length} ${dayEntries.length===1?"hit":"hits"} · ${gramsFmt(dayG)}${dayCost?` · ${money(dayCost)}`:""}`
+      ? `${dayEntries.length} ${dayEntries.length===1?"toke":"tokes"} · ${gramsFmt(dayG)}${dayCost?` · ${money(dayCost)}`:""}`
       : "no entries on this day",
-    idx >= 0 ? `Day ${idx+1} of ${days.length}` : `${days.length} ${days.length===1?"day has":"days have"} hits`
+    idx >= 0 ? `Day ${idx+1} of ${days.length}` : `${days.length} ${days.length===1?"day has":"days have"} tokes`
   );
   // Prev enabled if an older day-with-entries exists; next if a newer one does.
   setNav(days.some(k => k < currentDay), days.some(k => k > currentDay));
 
   if (!dayEntries.length){
-    el.innerHTML='<p class="muted" style="font-size:13px">No entries on this day. Use ← Prev / Next → to find days with hits.</p>';
+    el.innerHTML='<p class="muted" style="font-size:13px">No entries on this day. Use ← Prev / Next → to find days with tokes.</p>';
     return;
   }
   // Render this day's entries (time only — the date is in the header).
@@ -3938,7 +3938,7 @@ function renderEntries(){
       ${x.note?`<span class="entry-note">${esc(x.note)}</span>`:""}
       ${extras.length?`<small class="muted">${esc(extras.join(" · "))}</small>`:""}
       ${tagline?`<div class="tagline">${tagline}</div>`:""}
-    </div><div class="entry-acts"><button class="del-btn" style="color:var(--muted)" onclick="openHitEdit('${x.id}')" aria-label="Edit hit">✎</button><button class="del-btn" onclick="deleteEntry('${x.id}')" aria-label="Delete hit">✕</button></div></div>`;
+    </div><div class="entry-acts"><button class="del-btn" style="color:var(--muted)" onclick="openHitEdit('${x.id}')" aria-label="Edit toke">✎</button><button class="del-btn" onclick="deleteEntry('${x.id}')" aria-label="Delete toke">✕</button></div></div>`;
   }).join("");
 }
 
@@ -4070,7 +4070,7 @@ function syncBustupPresetChips(){
     b.classList.toggle("active", el.value !== "" && +b.dataset.g === v);
   });
 }
-// #9: per-device grams-per-hit editor (writes directly to settings on input)
+// #9: per-device grams-per-toke editor (writes directly to settings on input)
 function renderDeviceGphList(){
   const el=document.getElementById("deviceGphList");
   if(!el) return;
@@ -4120,7 +4120,7 @@ function removeTag(i){ const t=settings.tags[i]; settings.tags.splice(i,1); if(t
    15. PIN LOCK & PANIC
    =================================================================== */
 async function hashPin(pin){
-  const data=new TextEncoder().encode("hit-tracker-salt::"+pin);
+  const data=new TextEncoder().encode("toke-tracker-salt::"+pin);
   const buf=await crypto.subtle.digest("SHA-256",data);
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
 }
@@ -4348,12 +4348,12 @@ function updateReportPreview(){
   const el = document.getElementById("reportPreview");
   if (!from || !to){ el.textContent = ""; return; }
   const inR = d => { const t=new Date(d); return t>=from && t<=to; };
-  const hits = log.filter(x=>inR(x.time)).length;
+  const tokes = log.filter(x=>inR(x.time)).length;
   const grams = log.filter(x=>inR(x.time)).reduce((s,x)=>s+entryAmount(x),0);
   const busts = bustups.filter(b=>inR(b.date+"T12:00:00")).length;
   const cis = checkins.filter(c=>inR(c.date+"T12:00:00")).length;
   const days = Math.max(1, Math.round((to-from)/86400000)+1);
-  el.textContent = `${days} days • ${hits} hits • ${grams.toFixed(2)}g • ${busts} bust-ups • ${cis} check-ins`;
+  el.textContent = `${days} days • ${tokes} tokes • ${grams.toFixed(2)}g • ${busts} bust-ups • ${cis} check-ins`;
 }
 
 // --- Small SVG chart helpers (no Chart.js dependency → reliable in a popup) ---
@@ -4438,7 +4438,7 @@ function generateReport(){
     const dBusts = rBustups.filter(b=>b.date===k).length;
     const dReups = rReups.filter(r=>dayKey(r.date)===k).reduce((s,r)=>s+(+r.amount||0),0);
     const ci = checkinFor(k);
-    dayRows.push({k, date:new Date(d), hits:dLog.length, grams:dGrams, cost:dCost, busts:dBusts, reups:dReups, ci});
+    dayRows.push({k, date:new Date(d), tokes:dLog.length, grams:dGrams, cost:dCost, busts:dBusts, reups:dReups, ci});
   }
 
   // ----- Calendar month grids -----
@@ -4530,14 +4530,14 @@ function generateReport(){
   const money2 = n => (n==null||isNaN(n)) ? "—" : "$"+Number(n).toFixed(2);
 
   // ----- Daily list table (only days with activity, to keep it short) -----
-  const activeRows = dayRows.filter(x=>x.hits>0||x.busts>0||x.reups>0||x.ci);
+  const activeRows = dayRows.filter(x=>x.tokes>0||x.busts>0||x.reups>0||x.ci);
   const dailyTable = activeRows.length ? (
     `<table class="data"><thead><tr>
-      <th>Date</th><th>Hits</th><th>Grams</th><th>Cost</th><th>•</th><th>» Reup</th><th>Sleep</th><th>Mood</th>
+      <th>Date</th><th>Tokes</th><th>Grams</th><th>Cost</th><th>•</th><th>» Reup</th><th>Sleep</th><th>Mood</th>
     </tr></thead><tbody>`+
     activeRows.map(x=>`<tr>
       <td>${escSVG(x.date.toLocaleDateString(undefined,{month:"short",day:"numeric"}))}</td>
-      <td>${x.hits}</td>
+      <td>${x.tokes}</td>
       <td>${x.grams?x.grams.toFixed(2):"—"}</td>
       <td>${x.cost?money2(x.cost):"—"}</td>
       <td>${x.busts||""}</td>
@@ -4564,7 +4564,7 @@ function generateReport(){
   ) : "";
 
   // ----- Assemble the full HTML document -----
-  const title = "Sunnys Hit Tracker Report";
+  const title = "Sunnys Tokes Tracker Report";
   const css = `
     *{box-sizing:border-box}
     body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -4611,13 +4611,13 @@ function generateReport(){
   const body = `
     <div class="report-header">
       <h1>${title} <span class="badge">PRIVATE</span></h1>
-      <div class="meta">Range: <b>${escSVG(rangeStr)}</b> &nbsp;•&nbsp; Generated: ${escSVG(genStr)} &nbsp;•&nbsp; ${daysSpan} days &nbsp;•&nbsp; ${totalHits} hits logged</div>
+      <div class="meta">Range: <b>${escSVG(rangeStr)}</b> &nbsp;•&nbsp; Generated: ${escSVG(genStr)} &nbsp;•&nbsp; ${daysSpan} days &nbsp;•&nbsp; ${totalHits} tokes logged</div>
     </div>
 
     <div class="section">
       <h2>Summary</h2>
       <table class="stats">
-        <tr><td class="lbl">Total hits logged</td><td class="val">${totalHits}</td>
+        <tr><td class="lbl">Total tokes logged</td><td class="val">${totalHits}</td>
             <td class="lbl">Total grams smoked</td><td class="val">${totalGrams.toFixed(2)} g</td></tr>
         <tr><td class="lbl">Estimated cost</td><td class="val">${money2(totalCost)}</td>
             <td class="lbl">Bust-ups in range</td><td class="val">${rBustups.length}</td></tr>
@@ -4638,13 +4638,13 @@ function generateReport(){
         <tr><td class="lbl">» Acquired (reups)</td><td class="val">${sb.acquired.toFixed(2)} g</td>
             <td class="lbl">− Given away / sold</td><td class="val">${sb.given.toFixed(2)} g</td></tr>
         <tr><td class="lbl">− Busted up (ground)</td><td class="val">${sb.busted.toFixed(2)} g</td>
-            <td class="lbl">− Smoked (from hits)</td><td class="val">${sb.smoked.toFixed(2)} g</td></tr>
+            <td class="lbl">− Smoked (from tokes)</td><td class="val">${sb.smoked.toFixed(2)} g</td></tr>
         <tr><td class="lbl">= Nugs on hand (whole)</td><td class="val">${sb.nugsOnHand.toFixed(2)} g</td>
             <td class="lbl">= Ground ready to smoke</td><td class="val">${sb.groundReady.toFixed(2)} g</td></tr>
         <tr><td class="lbl">Total on hand</td><td class="val">${sb.totalOnHand.toFixed(2)} g</td>
             <td class="lbl">Effective $/g</td><td class="val">${ppg>0?money2(ppg):"—"}</td></tr>
         <tr><td class="lbl">Total spent (all time)</td><td class="val">${money2(sb.spent)}</td>
-            <td class="lbl">Grams per hit (setting)</td><td class="val">${(+settings.defaultGramsPerHit||0.02).toFixed(3)} g</td></tr>
+            <td class="lbl">Grams per toke (setting)</td><td class="val">${(+settings.defaultGramsPerHit||0.02).toFixed(3)} g</td></tr>
       </table>
     </div>
 
@@ -4676,7 +4676,7 @@ function generateReport(){
         <div class="chart-box"><h3>Grams by weekday</h3>${dowChart}</div>
       </div>
       <div class="chart-row">
-        <div class="chart-box"><h3>Hits by size</h3>${sizeChart}</div>
+        <div class="chart-box"><h3>Tokes by size</h3>${sizeChart}</div>
       </div>
     </div>
 
@@ -4735,7 +4735,7 @@ function exportCSV(){
     rows.push(cells.join(","));
   });
   const csvDate = new Date().toISOString().slice(0,10);
-  download("hit-tracker-" + csvDate + ".csv", rows.join("\n"), "text/csv");
+  download("toke-tracker-" + csvDate + ".csv", rows.join("\n"), "text/csv");
   renderAll();
 }
 async function exportJSON(){
@@ -4744,13 +4744,13 @@ async function exportJSON(){
   let payload;
   if (vault){
     await writeVaultNow();
-    payload = {app:"hit-tracker", version:6, encrypted:true,
+    payload = {app:"toke-tracker", version:6, encrypted:true,
                exportedAt:new Date().toISOString(), vault: readVault()};
   } else {
-    payload = {app:"hit-tracker", version:6, exportedAt:new Date().toISOString(),
+    payload = {app:"toke-tracker", version:6, exportedAt:new Date().toISOString(),
                log, checkins, stash, bustups, settings};
   }
-  const okWrite = await writeJSONFile("hit-tracker-backup.json", JSON.stringify(payload,null,2));
+  const okWrite = await writeJSONFile("toke-tracker-backup.json", JSON.stringify(payload,null,2));
   if (!okWrite){ toast("Backup cancelled"); return false; }
   // Only stamp AFTER a write we know succeeded, so the reminder can't lie.
   settings.lastBackup = new Date().toISOString();
@@ -4804,11 +4804,11 @@ function validCost(v, max){
   if (isNaN(n)) return null;
   return Math.min(max, Math.max(0, n));
 }
-// Sanitize a hit entry; returns a clean entry or null (reject).
+// Sanitize a toke entry; returns a clean entry or null (reject).
 function validateHit(x){
   if (!x || typeof x !== "object") return null;
   const t = validDate(x.time);
-  if (!t) return null;                                   // a hit without a sane time is useless
+  if (!t) return null;                                   // a toke without a sane time is useless
   const tags = Array.isArray(x.tags)
     ? x.tags.filter(tg => typeof tg === "string").map(tg => tg.slice(0, 30)).slice(0, 20)
     : [];
@@ -4825,8 +4825,8 @@ function validateHit(x){
     sleepQuality: rating(x.sleepQuality),
     social:       (x.social === "alone" || x.social === "others") ? x.social : null,
     tags:         tags,
-    cost:         validCost(x.cost, 1000),               // per-hit cost: [0, 1000]
-    amount:       validAmount(x.amount, 5),              // per-hit grams: (0, 5]
+    cost:         validCost(x.cost, 1000),               // per-toke cost: [0, 1000]
+    amount:       validAmount(x.amount, 5),              // per-toke grams: (0, 5]
     strain:       (typeof x.strain === "string" && x.strain.trim()) ? x.strain.trim().slice(0, 60) : null
   };
 }
@@ -4880,7 +4880,7 @@ function validateCheckin(c){
 // Clamp imported settings so a corrupt/malicious backup can't break the app or
 // lock you out. Never imports an active PIN lockout state.
 function sanitizeImportedSettings(s){
-  s.limitUnit = (s.limitUnit === "hits") ? "hits" : "grams";
+  s.limitUnit = (s.limitUnit === "tokes") ? "tokes" : "grams";
   s.dailyLimit = Math.max(0, Math.min(100, +s.dailyLimit || 0));
   s.defaultGramsPerHit = Math.max(0.001, Math.min(1, +s.defaultGramsPerHit || 0.02));
   s.pricePerGram = Math.max(0, Math.min(10000, +s.pricePerGram || 0));
@@ -4948,7 +4948,7 @@ function mergeValidated(arr, validator, existing, getId, saveFn, label){
   if (added) saveFn();
   return { added, rejected };
 }
-function mergeHits(arr){     return mergeValidated(arr, validateHit,     log,      x=>x.id,   saveLog,     "hit"); }
+function mergeHits(arr){     return mergeValidated(arr, validateHit,     log,      x=>x.id,   saveLog,     "toke"); }
 function mergeCheckins(arr){ return mergeValidated(arr, validateCheckin, checkins, x=>x.date, saveCheckins,"check-in"); }
 function mergeStash(arr){    return mergeValidated(arr, validateStash,   stash,    x=>x.id,   saveStash,   "stash entry"); }
 function mergeBustups(arr){  return mergeValidated(arr, validateBustup,  bustups,  x=>x.id,   saveBustups, "bust-up"); }
@@ -5072,8 +5072,8 @@ function renderTbreak(){
   if (!t){ el.style.display = "none"; return; }
   const pct = Math.min(100, (t.days / t.goal) * 100);
   const hitLine = t.hitsSince
-    ? t.hitsSince + " hit" + (t.hitsSince === 1 ? "" : "s") + " logged since it started — just the count."
-    : "No hits logged since it started.";
+    ? t.hitsSince + " toke" + (t.hitsSince === 1 ? "" : "s") + " logged since it started — just the count."
+    : "No tokes logged since it started.";
   el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     + '<div style="flex:1;min-width:150px"><b>T-break · day ' + t.days + ' of ' + t.goal + '</b>'
     + '<div class="tiny" style="margin-top:2px">' + hitLine + '</div></div>'
@@ -5178,7 +5178,7 @@ document.addEventListener("keydown", function(e){
   }
 });
 
-// #10: streak counter — consecutive days with at least one hit
+// #10: streak counter — consecutive days with at least one toke
 function computeStreaks(){
   if (!log.length) return {current:0, longest:0};
   const todayK = dayKey(new Date());
@@ -5251,8 +5251,8 @@ function renderOtherStash(){
     const perHit = gphFor(kind);
     const hitsLeft = left > 0 ? Math.floor(left / perHit) : 0;
     const bits = [];
-    if (left > 0) bits.push(`about ${hitsLeft} hit${hitsLeft===1?"":"s"} left`);
-    if (bought > 0) bits.push(`${money(spent/bought)}/g · ${money((spent/bought) * perHit)} a hit`);
+    if (left > 0) bits.push(`about ${hitsLeft} toke${hitsLeft===1?"":"s"} left`);
+    if (bought > 0) bits.push(`${money(spent/bought)}/g · ${money((spent/bought) * perHit)} a toke`);
     const rate = rateFor(kind);
     if (left > 0 && rate > 0) bits.push(`${gramsFmt(rate)}/day lately`);
     if (spent > 0) bits.push(`${money(spent)} spent`);
@@ -5380,18 +5380,18 @@ function renderTodayNotes(){
   const bank = computeGoalBank();
   const isGrams = usingGrams();
   const used = isGrams ? dayGrams(dayKey(new Date())) : todaysHits().length;
-  const hits = todaysHits().length;
+  const tokes = todaysHits().length;
   const g = dayGrams(dayKey(new Date()));
   const leftNote = document.getElementById("todayLeftNote");
   if (leftNote){
     if (!limit) leftNote.textContent = "no daily limit set";
-    else leftNote.textContent = "of " + (isGrams ? gramsFmt(limit + bank) : (limit + bank) + " hits") + " allowance";
+    else leftNote.textContent = "of " + (isGrams ? gramsFmt(limit + bank) : (limit + bank) + " tokes") + " allowance";
   }
   const costToday = todaysHits().reduce((a,x)=>a+hitCost(x),0);
   const usedNote = document.getElementById("todayUsedNote");
   if (usedNote){
     usedNote.textContent = isGrams
-      ? `${hits} hit${hits===1?"":"s"} · ${money(costToday)}`
+      ? `${tokes} toke${tokes===1?"":"s"} · ${money(costToday)}`
       : `${gramsFmt(g)} · ${money(costToday)}`;
   }
   const bankNote = document.getElementById("bankNote");
@@ -5402,7 +5402,7 @@ function renderTodayNotes(){
       const yUsed = isGrams
         ? log.filter(x=>dayKey(x.time)===yKey).reduce((a,x)=>a+entryAmount(x),0)
         : log.filter(x=>dayKey(x.time)===yKey).length;
-      bankNote.textContent = `yesterday you used ${isGrams ? gramsFmt(yUsed) : yUsed + " hits"}`;
+      bankNote.textContent = `yesterday you used ${isGrams ? gramsFmt(yUsed) : yUsed + " tokes"}`;
     } else {
       bankNote.textContent = "unused allowance, not weed";
     }
@@ -5435,14 +5435,14 @@ function renderAll(){
     const g=activeMs(a,b);
     if(!longest||g>longest){ longest=g; longestRaw=b-a; gapFrom=sorted[i-1]; gapTo=sorted[i]; }
   }
-  // Name the two hits behind the number, so a wrong timestamp can be spotted.
+  // Name the two tokes behind the number, so a wrong timestamp can be spotted.
   const shortTs = t => {
     const d = new Date(t);
     return d.toLocaleDateString(undefined,{day:"numeric",month:"short"}) + " "
          + d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
   };
   setText("longestGap", fmtDuration(longest));
-  // If the break spans a day with no hits, say so. Otherwise 17h looks impossible
+  // If the break spans a day with no tokes, say so. Otherwise 17h looks impossible
   // on a 13-hour waking day and the number seems broken when it isn't.
   const gapStat = document.getElementById("longestGapStat");
   if (gapStat){
@@ -5452,11 +5452,11 @@ function renderAll(){
   }
   const gapNote = document.getElementById("longestGapNote");
   if (gapNote){
-    if (longest == null) gapNote.textContent = "no two hits to compare yet";
+    if (longest == null) gapNote.textContent = "no two tokes to compare yet";
     else if (longestRaw > longest + 60000){
       gapNote.textContent = `${shortTs(gapFrom.time)} → ${shortTs(gapTo.time)}, sleep removed`;
     } else {
-      gapNote.textContent = "longest break between hits";
+      gapNote.textContent = "longest break between tokes";
     }
   }
   renderStreaks();
@@ -5625,13 +5625,13 @@ function runSelfTests(){
     log.push({id:"r5", time:iso(1), amount:1.0, device:"Pipe", size:"Medium", tags:[]});
     b = stashBreakdown();
     eq("pre-bust smoking does not shrink the batch", r4(b.groundReady), 1);
-    // Hits before any bust-up have nothing to draw from: they are missing data,
+    // Tokes before any bust-up have nothing to draw from: they are missing data,
     // not a withdrawal from the jar. Nugs only move when you grind or give away.
-    eq("nugs = 28 - 2 busted (hits never eat nugs)", r4(b.nugsOnHand), 26);
-    eq("hits with no grind logged are counted", r4(b.shortfall), 1.79);
+    eq("nugs = 28 - 2 busted (tokes never eat nugs)", r4(b.nugsOnHand), 26);
+    eq("tokes with no grind logged are counted", r4(b.shortfall), 1.79);
     eq("total = ground 1 + nugs 26", r4(b.totalOnHand), 27);
     log.push({id:"r6", time:iso(0.5), amount:2.5, device:"Pipe", size:"Medium", tags:[]});
-    eq("a hit bigger than the ground left adds to it", r4(stashBreakdown().shortfall), 3.29);
+    eq("a toke bigger than the ground left adds to it", r4(stashBreakdown().shortfall), 3.29);
     log.pop();
 
     // A physical count overrides the estimate from that moment on.
@@ -5692,14 +5692,14 @@ function runSelfTests(){
       log.forEach(x=>{ const k = dayKey(x.time); perDay[k] = (perDay[k]||0) + entryAmount(x); });
       eq("day buckets add up to the total", r4(Object.values(perDay).reduce((a,b)=>a+b,0)), 1.6);
 
-      // a hit with no size recorded must not vanish from the chart
+      // a toke with no size recorded must not vanish from the chart
       log.push({id:"mNoSize", time:new Date(now-86400000).toISOString(), amount:0.2, device:"Pipe", tags:[]});
       const bySize2 = {};
       log.forEach(x => { const k = x.size||"Unknown"; bySize2[k] = (bySize2[k]||0) + entryAmount(x); });
-      eq("unsized hits are still counted", r4(Object.values(bySize2).reduce((a,b)=>a+b,0)), 1.8);
+      eq("unsized tokes are still counted", r4(Object.values(bySize2).reduce((a,b)=>a+b,0)), 1.8);
       log.pop();
 
-      // cost per hit must not drift from the grams it is based on
+      // cost per toke must not drift from the grams it is based on
       settings.pricePerGram = 10; settings.costPerSize = {Small:0, Medium:0, Large:0};
       eq("cost of 0.3g at 10/g is 3.00", Math.round(hitCost(log[0])*100)/100, 3);
       eq("summed cost matches summed grams x price",
@@ -5733,7 +5733,7 @@ function runSelfTests(){
     logHit();
     eq("typed grams remembered for the device", settings.deviceLastAmount.Joint, 0.08);
     logHit({instant:true});
-    eq("next quick hit uses the remembered grams", log[log.length-1].amount, 0.08);
+    eq("next quick toke uses the remembered grams", log[log.length-1].amount, 0.08);
     eq("other devices unaffected", settings.deviceLastAmount.Pipe, undefined);
 
     // Sleep window: 01:00-10:00 must not count toward a gap.
@@ -5876,7 +5876,7 @@ function runLaunchAction(action){
   // logHit / bustUp / openCheckin touch DOM built by init(); defer until boot settles.
   setTimeout(()=>{
     try {
-      if (action === "hit") logHit({instant:true});
+      if (action === "toke") logHit({instant:true});
       else if (action === "bustup") bustUp("");
       else if (action === "checkin") openCheckin();
     } catch(e){ console.error("launch action failed:", e); }
