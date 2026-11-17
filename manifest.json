@@ -44,7 +44,7 @@
     {
       "name": "Log a toke",
       "short_name": "Log toke",
-      "url": "./?action=hit",
+      "url": "./?action=toke",
       "icons": [
         {
           "src": "icon-192.png",

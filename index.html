@@ -5876,7 +5876,7 @@ function runLaunchAction(action){
   // logHit / bustUp / openCheckin touch DOM built by init(); defer until boot settles.
   setTimeout(()=>{
     try {
-      if (action === "toke") logHit({instant:true});
+      if (action === "hit" || action === "toke") logHit({instant:true});  // installed shortcuts still send "hit"
       else if (action === "bustup") bustUp("");
       else if (action === "checkin") openCheckin();
     } catch(e){ console.error("launch action failed:", e); }
