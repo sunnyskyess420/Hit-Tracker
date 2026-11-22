@@ -2008,6 +2008,23 @@ function entryAmount(e){
 }
 function dayGrams(dateKey){ return log.filter(x=>dayKey(x.time)===dateKey).reduce((s,x)=>s+entryAmount(x),0); }
 function usingGrams(){ return settings.limitUnit === "grams"; }
+// Grams that make one "toke" for this device: per-device override wins, then
+// the global default — the same chain entryAmount uses for its estimates.
+function gramsPerToke(device){
+  const dg = settings.deviceGramsPerHit && settings.deviceGramsPerHit[device];
+  if (dg != null && !isNaN(+dg) && +dg > 0) return +dg;
+  return +settings.defaultGramsPerHit || 0;
+}
+// Estimated tokes in one entry: its grams ÷ grams-per-toke. Entries logged
+// without an amount resolve to exactly 1; a 0.5g joint at 0.02g/toke = 25.
+function entryTokes(e){
+  const p = gramsPerToke(e.device);
+  return p > 0 ? entryAmount(e) / p : 1;
+}
+function tokesOf(list){ let s=0; for (const x of list||[]) s+=entryTokes(x); return s; }
+// Counts can be fractional now (0.5g ÷ 0.02g = 25, but 0.03g = 1.5).
+function fmtTokes(n){ const r=Math.round(n*10)/10; return Number.isInteger(r)?String(r):r.toFixed(1); }
+function tokeWord(n){ return `${fmtTokes(n)} toke${Math.round(n*10)/10===1?"":"s"}`; }
 function gramsFmt(g){ if (g==null||isNaN(g)) return "—"; return (Math.round(g*100)/100)+"g"; }
 // Bust-up amount: one clamped number, shared by the main button, the day modal and
 // the settings field, so the label and the grams actually logged never disagree.
@@ -2442,7 +2459,7 @@ function computeGoalBank(){
   if (!yLog.length) return 0;           // nothing logged yesterday: no basis for spare
   const usedYesterday = isGrams
     ? yLog.reduce((sum,x)=>sum+entryAmount(x),0)
-    : yLog.length;
+    : tokesOf(yLog);
   let bank = Math.min(limit, Math.max(0, limit - usedYesterday));   // at most one extra day
   // You cannot have spare allowance worth more than the weed you still have.
   const tracking = stash.length > 0 || bustups.length > 0;
@@ -2457,8 +2474,8 @@ function renderLimit(){
   const bank = computeGoalBank();
   const effLimit = limit + bank;
   const isGrams = usingGrams();
-  const used = isGrams ? dayGrams(dayKey(new Date())) : todaysHits().length;
-  const usedTxt = isGrams ? gramsFmt(used) : used;
+  const used = isGrams ? dayGrams(dayKey(new Date())) : tokesOf(todaysHits());
+  const usedTxt = isGrams ? gramsFmt(used) : fmtTokes(used);
   document.getElementById("ringCount").textContent = usedTxt;
   const arc = document.getElementById("ringArc");
   const C = 326.7; // 2*pi*52
@@ -2467,13 +2484,13 @@ function renderLimit(){
   if (bankEl){
     if (!limit) bankEl.textContent = "—";
     else if (!settings.goalBankEnabled) bankEl.textContent = "off";
-    else bankEl.textContent = isGrams ? gramsFmt(bank) : bank;
+    else bankEl.textContent = isGrams ? gramsFmt(bank) : fmtTokes(bank);
   }
   // Headline number for the card: what is actually left today.
   const leftEl = document.getElementById("todayLeft");
   if (leftEl){
     const remainTxt = Math.max(0, effLimit - used);
-    leftEl.textContent = isGrams ? gramsFmt(remainTxt) : Math.floor(remainTxt);
+    leftEl.textContent = isGrams ? gramsFmt(remainTxt) : fmtTokes(remainTxt);
   }
   const usedEl = document.getElementById("todayUsed");
   if (usedEl) usedEl.textContent = usedTxt;
@@ -2486,8 +2503,8 @@ function renderLimit(){
   }
   const pct = Math.min(used/effLimit, 1);
   arc.setAttribute("stroke-dashoffset", C*(1-pct));
-  const effTxt = isGrams ? gramsFmt(effLimit) : effLimit;
-  const limitTxt = isGrams ? gramsFmt(limit) : limit;
+  const effTxt = isGrams ? gramsFmt(effLimit) : fmtTokes(effLimit);
+  const limitTxt = isGrams ? gramsFmt(limit) : fmtTokes(limit);
   document.getElementById("ringSub").textContent = bank>0 ? `${usedTxt} / ${effTxt}` : `${usedTxt} / ${limitTxt}`;
   let color = "var(--green-bright)", cls="ok", msg="", detail="";
   const u = r4(used), l = r4(effLimit);
@@ -2495,11 +2512,11 @@ function renderLimit(){
   // "goal" read like a target you had achieved. Headline = what's left,
   // detail = exactly where that number comes from.
   const limitLine = bank > 0
-    ? (isGrams ? `${gramsFmt(limit)} limit + ${gramsFmt(bank)} spare from yesterday` : `${limit} limit + ${bank} spare from yesterday`)
-    : (isGrams ? `${gramsFmt(limit)} limit` : `${limit} tokes`);
+    ? (isGrams ? `${gramsFmt(limit)} limit + ${gramsFmt(bank)} spare from yesterday` : `${fmtTokes(limit)} limit + ${fmtTokes(bank)} spare from yesterday`)
+    : (isGrams ? `${gramsFmt(limit)} limit` : `${fmtTokes(limit)} tokes`);
   const usedLine = isGrams
     ? (bank > 0 ? `${gramsFmt(used)} used of ${gramsFmt(effLimit)}` : `${gramsFmt(used)} used of ${gramsFmt(limit)} limit`)
-    : (bank > 0 ? `${used} of ${effLimit} tokes used` : `${used} of ${limit} tokes used`);
+    : (bank > 0 ? `${fmtTokes(used)} of ${fmtTokes(effLimit)} tokes used` : `${fmtTokes(used)} of ${fmtTokes(limit)} tokes used`);
   const remain = effLimit - used;
   if (u >= l){
     color = "var(--red)"; cls="at";
@@ -2511,7 +2528,7 @@ function renderLimit(){
     msg = "Close to your limit";
     detail = bank > 0 ? `${usedLine} — ${limitLine}.` : `${usedLine}.`;
   } else {
-    msg = isGrams ? `${gramsFmt(remain)} left today` : `${remain} toke${remain===1?"":"s"} left today`;
+    msg = isGrams ? `${gramsFmt(remain)} left today` : `${tokeWord(remain)} left today`;
     detail = bank > 0 ? `${usedLine} — ${limitLine}.` : `${usedLine}.`;
   }
   arc.setAttribute("stroke", color);
@@ -2523,9 +2540,9 @@ function maybeShowLimitToast(){
   const limit = +settings.dailyLimit || 0; if (!limit) return;
   const effLimit = limit + computeGoalBank();
   const isGrams = usingGrams();
-  const used = isGrams ? dayGrams(dayKey(new Date())) : todaysHits().length;
+  const used = isGrams ? dayGrams(dayKey(new Date())) : tokesOf(todaysHits());
   const u = r4(used), l = r4(effLimit);
-  const at80 = isGrams ? (u >= r4(effLimit*0.8) && u < l) : (used === Math.ceil(effLimit*0.8));
+  const at80 = u >= r4(effLimit*0.8) && u < l;
   if (settings.warnAt80 && at80) toast("You're near your daily limit.");
   else if (u >= l) toast("You've reached your daily limit.");
 }
@@ -2706,7 +2723,7 @@ function renderStash(){
         : days > 400 ? "over a year at your recent rate"
         : `about ${days < 10 ? days.toFixed(1) : Math.round(days)} days at your recent rate`;
     } else if (perDay > 0){
-      const tokes = Math.floor(onHand / Math.max(+settings.gramsPerHit || 0.02, 0.001));
+      const tokes = Math.floor(onHand / Math.max(+settings.defaultGramsPerHit || 0.02, 0.001));
       lastsEl.textContent = `about ${tokes} toke${tokes===1?"":"s"} left`;
     } else {
       lastsEl.textContent = "no tokes in the last week to estimate from";
@@ -3344,7 +3361,7 @@ function calRender(){
   const days = new Date(y,m+1,0).getDate();
   // per-day values for this month: {tokes, grams}
   const dayVals = {};
-  log.forEach(x=>{ const k=dayKey(x.time); if (k.startsWith(`${y}-${String(m+1).padStart(2,"0")}-`)){ if(!dayVals[k]) dayVals[k]={tokes:0,grams:0}; dayVals[k].tokes++; dayVals[k].grams+=entryAmount(x); } });
+  log.forEach(x=>{ const k=dayKey(x.time); if (k.startsWith(`${y}-${String(m+1).padStart(2,"0")}-`)){ if(!dayVals[k]) dayVals[k]={tokes:0,grams:0}; dayVals[k].tokes+=entryTokes(x); dayVals[k].grams+=entryAmount(x); } });
   // bust-up days this month (for the • marker)
   const bustupDays = {};
   bustups.forEach(b=>{ if (b.date.startsWith(`${y}-${String(m+1).padStart(2,"0")}-`)) bustupDays[b.date]=true; });
@@ -3372,9 +3389,9 @@ function calRender(){
     const show = v.tokes>0;
     // One legible number per day. The heat colour still conveys magnitude,
     // so a 3-toke day and a 40-toke day read instantly without counting icons.
-    const hitsWord = `${v.tokes} toke${v.tokes===1?"":"s"}`;
+    const hitsWord = tokeWord(v.tokes);
     const countHtml = show
-      ? `<span class="cal-tokes${v.tokes >= 100 ? " sm" : ""}">${v.tokes}</span>`
+      ? `<span class="cal-tokes${v.tokes >= 100 ? " sm" : ""}">${fmtTokes(v.tokes)}</span>`
         + (isGrams ? `<span class="cal-g">${gramsFmt(v.grams)}</span>` : "")
       : "";
     const cellTitle = show ? `${hitsWord} \u00b7 ${gramsFmt(v.grams)}` : "No tokes";
@@ -3384,8 +3401,8 @@ function calRender(){
   const bustupTxt = monthBustups>0 ? ` • ${monthBustups} bust-up${monthBustups===1?"":"s"}` : "";
   const reupTxt = monthReupGrams>0 ? ` • ${gramsFmt(monthReupGrams)} reup` : "";
   const totalTxt = isGrams
-    ? `Month: ${gramsFmt(monthGrams)} • ${monthHits} tokes${bustupTxt}${reupTxt} • ${money(monthCostForMonth(y,m))}`
-    : `Month: ${monthHits} toke${monthHits===1?"":"s"}${bustupTxt}${reupTxt} • ${money(monthCostForMonth(y,m))}`;
+    ? `Month: ${gramsFmt(monthGrams)} • ${tokeWord(monthHits)}${bustupTxt}${reupTxt} • ${money(monthCostForMonth(y,m))}`
+    : `Month: ${tokeWord(monthHits)}${bustupTxt}${reupTxt} • ${money(monthCostForMonth(y,m))}`;
   document.getElementById("calMonthTotal").textContent = totalTxt;
   // Spell out what each heat colour means instead of adjectives like "heavy".
   const lg = ["0g","\u2264 0.3g","\u2264 0.7g","\u2264 1.2g","> 1.2g"];
@@ -3411,7 +3428,7 @@ function openDay(k){
   // everything else is a footnote. Singular/plural matters here ("1 toke").
   const dayCost = dayEntries.reduce((s,x)=>s+hitCost(x),0);
   const headBits = [];
-  headBits.push(`${dayEntries.length} toke${dayEntries.length===1?"":"s"}`);
+  headBits.push(tokeWord(tokesOf(dayEntries)));
   headBits.push(gramsFmt(dayG));
   if (dayCost) headBits.push(money(dayCost));
   const footBits = [];
@@ -3476,6 +3493,7 @@ function openDay(k){
   } else {
     html += dayEntries.map(x=>{
       const d=new Date(x.time);
+      const tk=entryTokes(x), tkNote = Math.abs(tk-1)>0.05 ? ` · ≈${tokeWord(tk)}` : "";
       const extras=[];
       if (x.moodBefore!=null) extras.push("mood "+x.moodBefore+"→"+(x.moodAfter||"?"));
       if (x.stress!=null) extras.push("stress "+x.stress);
@@ -3488,7 +3506,7 @@ function openDay(k){
           <span class="entry-time">${d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</span>
           <span class="entry-g">${gramsFmt(entryAmount(x))}</span>
         </div>
-        <small class="entry-what">${esc(x.device)} · ${esc(x.size)}${hitCost(x)?` · ${money(hitCost(x))}`:""}</small>
+        <small class="entry-what">${esc(x.device)} · ${esc(x.size)}${tkNote}${hitCost(x)?` · ${money(hitCost(x))}`:""}</small>
         ${x.note?`<span class="entry-note">${esc(x.note)}</span>`:""}
         ${extras.length?`<small class="muted">${esc(extras.join(" · "))}</small>`:""}
         ${tagline?`<div class="tagline">${tagline}</div>`:""}
@@ -3507,7 +3525,7 @@ function countByDay(days){
   for (let i=days-1;i>=0;i--){
     const k=addDaysAgo(i);
     labels.push(new Date(k+"T12:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"}));
-    counts.push(log.filter(x=>dayKey(x.time)===k).length);
+    counts.push(log.filter(x=>dayKey(x.time)===k).reduce((s,x)=>s+entryTokes(x),0));
   }
   return {labels,counts};
 }
@@ -3529,7 +3547,7 @@ function makeLineChart(id,labels,data,color,label,decimal){
     options:{responsive:true,plugins:{legend:{display:false}},scales:{
       y:{beginAtZero:true,
          title:{display:true,text:decimal?"grams":"tokes",color:"#7d878d",font:{size:10}},
-         ticks:{precision:decimal?undefined:0,color:"#9aa3a8"},grid:{color:"#262b30"}},
+         ticks:{precision:decimal?undefined:1,color:"#9aa3a8"},grid:{color:"#262b30"}},
       x:{ticks:{color:"#9aa3a8",maxRotation:0,autoSkip:true},grid:{display:false}}}}
   });
 }
@@ -3543,11 +3561,11 @@ function makeBarChart(id,labels,data,color,horizontal,decimal){
       indexAxis: horizontal?"y":"x",
       responsive:true,plugins:{legend:{display:false}},
       scales:horizontal
-        ? {x:{beginAtZero:true,ticks:{precision:decimal?undefined:0,color:"#9aa3a8"},grid:{color:"#262b30"}},
+        ? {x:{beginAtZero:true,ticks:{precision:decimal?undefined:1,color:"#9aa3a8"},grid:{color:"#262b30"}},
            y:{ticks:{color:"#9aa3a8"},grid:{display:false}}}
         : {y:{beginAtZero:true,
              title:{display:true,text:decimal?"grams":"tokes",color:"#7d878d",font:{size:10}},
-             ticks:{precision:decimal?undefined:0,color:"#9aa3a8"},grid:{color:"#262b30"}},
+             ticks:{precision:decimal?undefined:1,color:"#9aa3a8"},grid:{color:"#262b30"}},
            x:{ticks:{color:"#9aa3a8",maxRotation:0,autoSkip:true},grid:{display:false}}}
     }
   });
@@ -3566,7 +3584,7 @@ function renderCharts(){
   if (!window.Chart){ document.getElementById("noChartWarn").classList.remove("hidden"); return; }
   const isGrams = usingGrams();
   const decimal = isGrams;
-  const fmt = v => isGrams ? gramsFmt(v) : `${v} toke${v===1?"":"s"}`;
+  const fmt = v => isGrams ? gramsFmt(v) : tokeWord(v);
   const sum = arr => arr.reduce((a,b)=>a+b,0);
   // 14-day
   if (isGrams){
@@ -3578,7 +3596,7 @@ function renderCharts(){
     const d14=countByDay(14);
     makeLineChart("dailyChart",d14.labels,d14.counts,"#4caf50","Tokes",false);
     const t=sum(d14.counts), bi=topIndex(d14.counts);
-    setNote("noteDaily", t ? `${t} toke${t===1?"":"s"} over 14 days (${(t/14).toFixed(1)} a day)` + (bi>=0?` · biggest day ${d14.labels[bi]} at ${d14.counts[bi]}`:"") : "Nothing logged in the last 14 days.");
+    setNote("noteDaily", t ? `${tokeWord(t)} over 14 days (${(t/14).toFixed(1)} a day)` + (bi>=0?` · biggest day ${d14.labels[bi]} at ${fmtTokes(d14.counts[bi])}`:"") : "Nothing logged in the last 14 days.");
   }
   // 30-day trend
   if (isGrams){
@@ -3590,7 +3608,7 @@ function renderCharts(){
     const d30=countByDay(30);
     makeLineChart("trendChart",d30.labels,d30.counts,"#42a5f5","Tokes",false);
     const t=sum(d30.counts), bi=topIndex(d30.counts);
-    setNote("noteTrend", t ? `${t} toke${t===1?"":"s"} over 30 days` + (bi>=0?` · biggest day ${d30.labels[bi]} at ${d30.counts[bi]}`:"") : "Nothing logged in the last 30 days.");
+    setNote("noteTrend", t ? `${tokeWord(t)} over 30 days` + (bi>=0?` · biggest day ${d30.labels[bi]} at ${fmtTokes(d30.counts[bi])}`:"") : "Nothing logged in the last 30 days.");
   }
   // weekly totals last 12 weeks
   const wLabels=[], wData=[];
@@ -3600,7 +3618,7 @@ function renderCharts(){
     const e=new Date(s); e.setDate(e.getDate()+7);
     wLabels.push(s.toLocaleDateString(undefined,{month:"short",day:"numeric"}));
     const weekEntries = log.filter(x=>{const t=new Date(x.time);return t>=s&&t<e;});
-    wData.push(isGrams ? weekEntries.reduce((a,x)=>a+entryAmount(x),0) : weekEntries.length);
+    wData.push(isGrams ? weekEntries.reduce((a,x)=>a+entryAmount(x),0) : tokesOf(weekEntries));
   }
   makeBarChart("weeklyChart",wLabels,wData,"#7e57c2",false,decimal);
   {
@@ -3609,7 +3627,7 @@ function renderCharts(){
   }
   // by hour — follows the grams/tokes setting instead of always counting tokes
   const hourVals=Array(24).fill(0);
-  log.forEach(x=>{ if (x.approx) return; hourVals[new Date(x.time).getHours()] += isGrams ? entryAmount(x) : 1; });
+  log.forEach(x=>{ if (x.approx) return; hourVals[new Date(x.time).getHours()] += isGrams ? entryAmount(x) : entryTokes(x); });
   const hourLabels=hourVals.map((_,i)=>hourLabel(i));
   makeBarChart("hourChart",hourLabels,hourVals,"#26a69a",false,decimal);
   {
@@ -3618,7 +3636,7 @@ function renderCharts(){
   }
   // by weekday (Sun-first, matching the calendar)
   const dowVals=Array(7).fill(0);
-  log.forEach(x=>{ dowVals[new Date(x.time).getDay()] += isGrams ? entryAmount(x) : 1; }); // Sun=0
+  log.forEach(x=>{ dowVals[new Date(x.time).getDay()] += isGrams ? entryAmount(x) : entryTokes(x); }); // Sun=0
   const dowNames=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   makeBarChart("dowChart",dowNames,dowVals,"#ef5350",false,decimal);
   {
@@ -3626,7 +3644,7 @@ function renderCharts(){
     setNote("noteDow", bi>=0 ? `Heaviest on ${dowNames[bi]} — ${fmt(dowVals[bi])} that day of the week.` : "No tokes logged yet.");
   }
   // by device
-  const dev={}; log.forEach(x=>{const d=x.device||"Unknown"; dev[d]=(dev[d]||0)+(isGrams?entryAmount(x):1);});
+  const dev={}; log.forEach(x=>{const d=x.device||"Unknown"; dev[d]=(dev[d]||0)+(isGrams?entryAmount(x):entryTokes(x));});
   const de=Object.entries(dev).sort((a,b)=>b[1]-a[1]);
   makeBarChart("deviceChart",de.map(x=>x[0]),de.map(x=>x[1]),"#5c6bc0",true,decimal);
   {
@@ -3636,7 +3654,7 @@ function renderCharts(){
       : "No tokes logged yet.");
   }
   // by size
-  const sz={}; log.forEach(x=>{const s=x.size||"Unknown"; sz[s]=(sz[s]||0)+(isGrams?entryAmount(x):1);});
+  const sz={}; log.forEach(x=>{const s=x.size||"Unknown"; sz[s]=(sz[s]||0)+(isGrams?entryAmount(x):entryTokes(x));});
   const se=Object.entries(sz).sort((a,b)=>b[1]-a[1]);
   makeBarChart("sizeChart",se.map(x=>x[0]),se.map(x=>x[1]),"#66bb6a",false,decimal);
   {
@@ -3657,7 +3675,7 @@ function renderWeeklyReport(){
   const weekEnd=new Date(+ws+7*86400000);
   const thisWeek = log.filter(x=>{const t=new Date(x.time);return t>=ws&&t<weekEnd;});
   const lastWeek = log.filter(x=>{const t=new Date(x.time);return t>=prevStart&&t<ws;});
-  const twHits=thisWeek.length, lwHits=lastWeek.length;
+  const twHits=tokesOf(thisWeek), lwHits=tokesOf(lastWeek);
   const twG=thisWeek.reduce((s,x)=>s+entryAmount(x),0), lwG=lastWeek.reduce((s,x)=>s+entryAmount(x),0);
   const twCost=thisWeek.reduce((s,x)=>s+hitCost(x),0), lwCost=lastWeek.reduce((s,x)=>s+hitCost(x),0);
   let changeTxt;
@@ -3669,11 +3687,11 @@ function renderWeeklyReport(){
       changeTxt = `You used ${Math.abs(pct)}% ${dir} this week (${gramsFmt(twG)}) versus last week (${gramsFmt(lwG)}).`;
     }
   } else {
-    if (lwHits===0) changeTxt = twHits>0 ? `You logged ${twHits} toke${twHits===1?"":"s"} this week (none last week).` : "No tokes logged either week.";
+    if (lwHits===0) changeTxt = twHits>0 ? `You logged ${tokeWord(twHits)} this week (none last week).` : "No tokes logged either week.";
     else {
       const pct=Math.round((twHits-lwHits)/lwHits*100);
       const dir = pct>0 ? "more" : pct<0 ? "fewer" : "the same number of";
-      changeTxt = `You logged ${Math.abs(pct)}% ${dir} toke${twHits===1?"":"s"} this week (${twHits}) versus last week (${lwHits}).`;
+      changeTxt = `You logged ${Math.abs(pct)}% ${dir} tokes this week (${tokeWord(twHits)}) versus last week (${tokeWord(lwHits)}).`;
     }
   }
   let costTxt = "";
@@ -3685,7 +3703,7 @@ function renderWeeklyReport(){
   const times=thisWeek.map(x=>new Date(x.time).getTime()).sort((a,b)=>a-b);
   let avgGap=null;
   if (times.length>1){ let s=0,n=0; for(let i=1;i<times.length;i++) for(const seg of awakeSegments(times[i-1], times[i])){ s+=seg.awake; n++; } avgGap=n?s/n:null; }
-  const gapTxt = avgGap!=null ? `<div class="tiny">Average gap between tokes this week: ${fmtDuration(avgGap)}. • ${twHits} tokes this week.</div>` : "";
+  const gapTxt = avgGap!=null ? `<div class="tiny">Average gap between tokes this week: ${fmtDuration(avgGap)}. • ${tokeWord(twHits)} this week.</div>` : "";
   document.getElementById("weeklyReport").innerHTML = `<p style="font-size:14px;margin:0 0 4px">${esc(changeTxt)}</p>${costTxt}${gapTxt}<p class="tiny" style="margin-top:8px">Factual summary only — no judgment.</p>`;
 }
 
@@ -3695,7 +3713,7 @@ function renderWeeklyReport(){
 function renderInsights(){
   const hourCounts=Array(24).fill(0);
   const dev={}, sz={};
-  log.forEach(x=>{hourCounts[new Date(x.time).getHours()]++; const d=x.device||"Unknown"; dev[d]=(dev[d]||0)+1; const s=x.size||"Unknown"; sz[s]=(sz[s]||0)+1;});
+  log.forEach(x=>{const tk=entryTokes(x);hourCounts[new Date(x.time).getHours()]+=tk; const d=x.device||"Unknown"; dev[d]=(dev[d]||0)+tk; const s=x.size||"Unknown"; sz[s]=(sz[s]||0)+tk;});
   const busiest = hourCounts.indexOf(Math.max(...hourCounts));
   const topDev = Object.entries(dev).sort((a,b)=>b[1]-a[1])[0];
   const topSz  = Object.entries(sz).sort((a,b)=>b[1]-a[1])[0];
@@ -3714,10 +3732,10 @@ function renderInsights(){
   }
   // Label, value, then a caption that says what the value actually counts.
   const cell=(l,v,d)=>`<div class="stat"><span class="stat-l">${l}</span><b>${v}</b>${d?`<small class="stat-d">${d}</small>`:""}</div>`;
-  const n = log.length;
-  const share = c => n ? `${c} of ${n} toke${n===1?"":"s"} (${Math.round(c/n*100)}%)` : "";
+  const n = tokesOf(log);
+  const share = c => n ? `${fmtTokes(c)} of ${tokeWord(n)} (${Math.round(c/n*100)}%)` : "";
   const strainHits = topStrain
-    ? log.filter(x => x.strain === topStrain[0]).length : 0;
+    ? tokesOf(log.filter(x => x.strain === topStrain[0])) : 0;
 
   // Say which slice of history these numbers cover, so "busiest hour" isn't a mystery.
   const scopeEl = document.getElementById("patScope");
@@ -3729,7 +3747,7 @@ function renderInsights(){
       const f = t => new Date(t).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
       const sameDay = dayKey(new Date(ts[0])) === dayKey(new Date(ts[ts.length-1]));
       const range = sameDay ? f(ts[0]) : `${f(ts[0])} – ${f(ts[ts.length-1])}`;
-      scopeEl.textContent = `Across all ${n} toke${n===1?"":"s"} · ${range}`;
+      scopeEl.textContent = `Across all ${tokeWord(n)} · ${range}`;
     }
   }
 
@@ -3738,7 +3756,7 @@ function renderInsights(){
     cell("Most-used method", topDev?topDev[0]:"—", topDev?share(topDev[1]):"")+
     cell("Most common size", topSz?topSz[0]:"—", topSz?share(topSz[1]):"")+
     cell("Avg gap between tokes", avgGap!=null?fmtDuration(avgGap):"—", "awake time, sleep excluded")+
-    cell("Top strain", topStrain?topStrain[0]:"—", topStrain?`${gramsFmt(topStrain[1])} over ${strainHits} toke${strainHits===1?"":"s"}`:"");
+    cell("Top strain", topStrain?topStrain[0]:"—", topStrain?`${gramsFmt(topStrain[1])} over ${tokeWord(strainHits)}`:"");
 }
 // "7 PM - 8 PM" reads better than "7p" when the label is a whole hour bucket.
 function hourRange(h){
@@ -3758,7 +3776,7 @@ function renderCorrelations(){
   for (let i=0;i<30;i++){
     const k=addDaysAgo(i);
     const dayEntries = log.filter(x=>dayKey(x.time)===k);
-    const n = isGrams ? dayEntries.reduce((s,x)=>s+entryAmount(x),0) : dayEntries.length;
+    const n = isGrams ? dayEntries.reduce((s,x)=>s+entryAmount(x),0) : tokesOf(dayEntries);
     const ci=checkinFor(k);
     if (ci) days.push({n, ci});
   }
@@ -3768,7 +3786,7 @@ function renderCorrelations(){
   if (!higher.length || !lower.length){ el.innerHTML='<p class="muted" style="font-size:13px">Need a mix of higher- and lower-use days with check-ins.</p>'; return; }
   const avg=(arr,k)=>arr.length?(arr.reduce((s,x)=>s+x.ci[k],0)/arr.length).toFixed(1):"—";
   const fields=[["sleep","Sleep"],["mood","Mood"],["productivity","Productivity"],["wellbeing","Well-being"]];
-  const medTxt = isGrams ? gramsFmt(med) : med;
+  const medTxt = isGrams ? gramsFmt(med) : fmtTokes(med);
   const N = days.length;
   // Small-sample caveat: a median split on a handful of days is anecdotal,
   // not a pattern. Warn plainly so nobody reads signal into coincidence.
@@ -3923,7 +3941,7 @@ function renderEntries(){
   setHeader(
     dDate.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric", year:"numeric"}) + (isToday ? " · today" : ""),
     dayEntries.length
-      ? `${dayEntries.length} ${dayEntries.length===1?"toke":"tokes"} · ${gramsFmt(dayG)}${dayCost?` · ${money(dayCost)}`:""}`
+      ? `${tokeWord(tokesOf(dayEntries))} · ${gramsFmt(dayG)}${dayCost?` · ${money(dayCost)}`:""}`
       : "no entries on this day",
     idx >= 0 ? `Day ${idx+1} of ${days.length}` : `${days.length} ${days.length===1?"day has":"days have"} tokes`
   );
@@ -3937,6 +3955,7 @@ function renderEntries(){
   // Render this day's entries (time only — the date is in the header).
   el.innerHTML = dayEntries.map(x=>{
     const d=new Date(x.time);
+    const tk=entryTokes(x), tkNote = Math.abs(tk-1)>0.05 ? ` · ≈${tokeWord(tk)}` : "";
     const extras=[];
     if (x.moodBefore!=null) extras.push("mood "+x.moodBefore+"→"+(x.moodAfter||"?"));
     if (x.stress!=null) extras.push("stress "+x.stress);
@@ -3949,7 +3968,7 @@ function renderEntries(){
         <span class="entry-time">${d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})}</span>
         <span class="entry-g">${gramsFmt(entryAmount(x))}</span>
       </div>
-      <small class="entry-what">${esc(x.device)} · ${esc(x.size)}${hitCost(x)?` · ${money(hitCost(x))}`:""}</small>
+      <small class="entry-what">${esc(x.device)} · ${esc(x.size)}${tkNote}${hitCost(x)?` · ${money(hitCost(x))}`:""}</small>
       ${x.note?`<span class="entry-note">${esc(x.note)}</span>`:""}
       ${extras.length?`<small class="muted">${esc(extras.join(" · "))}</small>`:""}
       ${tagline?`<div class="tagline">${tagline}</div>`:""}
@@ -4363,12 +4382,12 @@ function updateReportPreview(){
   const el = document.getElementById("reportPreview");
   if (!from || !to){ el.textContent = ""; return; }
   const inR = d => { const t=new Date(d); return t>=from && t<=to; };
-  const tokes = log.filter(x=>inR(x.time)).length;
+  const tokes = tokesOf(log.filter(x=>inR(x.time)));
   const grams = log.filter(x=>inR(x.time)).reduce((s,x)=>s+entryAmount(x),0);
   const busts = bustups.filter(b=>inR(b.date+"T12:00:00")).length;
   const cis = checkins.filter(c=>inR(c.date+"T12:00:00")).length;
   const days = Math.max(1, Math.round((to-from)/86400000)+1);
-  el.textContent = `${days} days • ${tokes} tokes • ${grams.toFixed(2)}g • ${busts} bust-ups • ${cis} check-ins`;
+  el.textContent = `${days} days • ${tokeWord(tokes)} • ${grams.toFixed(2)}g • ${busts} bust-ups • ${cis} check-ins`;
 }
 
 // --- Small SVG chart helpers (no Chart.js dependency → reliable in a popup) ---
@@ -4424,7 +4443,7 @@ function generateReport(){
   const rCheckins= checkins.filter(c=>inR(c.date+"T12:00:00"));
 
   // ----- Summary stats -----
-  const totalHits  = rLog.length;
+  const totalHits  = tokesOf(rLog);
   const totalGrams = rLog.reduce((s,x)=>s+entryAmount(x),0);
   const totalCost  = rLog.reduce((s,x)=>s+hitCost(x),0);
   const daysSpan   = Math.max(1, Math.round((to-from)/86400000)+1);
@@ -4453,7 +4472,7 @@ function generateReport(){
     const dBusts = rBustups.filter(b=>b.date===k).length;
     const dReups = rReups.filter(r=>dayKey(r.date)===k).reduce((s,r)=>s+(+r.amount||0),0);
     const ci = checkinFor(k);
-    dayRows.push({k, date:new Date(d), tokes:dLog.length, grams:dGrams, cost:dCost, busts:dBusts, reups:dReups, ci});
+    dayRows.push({k, date:new Date(d), tokes:tokesOf(dLog), grams:dGrams, cost:dCost, busts:dBusts, reups:dReups, ci});
   }
 
   // ----- Calendar month grids -----
@@ -4512,7 +4531,7 @@ function generateReport(){
 
   // By size
   const sizeMap = {};
-  rLog.forEach(x=>{ const s=x.size||"—"; sizeMap[s]=(sizeMap[s]||0)+1; });
+  rLog.forEach(x=>{ const s=x.size||"—"; sizeMap[s]=(sizeMap[s]||0)+entryTokes(x); });
   const sizeChart = Object.keys(sizeMap).length
     ? svgHBars(Object.keys(sizeMap).sort((a,b)=>sizeMap[b]-sizeMap[a]).map(s=>({label:s, value:sizeMap[s], color:"#7e57c2"})), {width:520})
     : "<p class='muted'>No data.</p>";
@@ -4552,7 +4571,7 @@ function generateReport(){
     </tr></thead><tbody>`+
     activeRows.map(x=>`<tr>
       <td>${escSVG(x.date.toLocaleDateString(undefined,{month:"short",day:"numeric"}))}</td>
-      <td>${x.tokes}</td>
+      <td>${fmtTokes(x.tokes)}</td>
       <td>${x.grams?x.grams.toFixed(2):"—"}</td>
       <td>${x.cost?money2(x.cost):"—"}</td>
       <td>${x.busts||""}</td>
@@ -4626,13 +4645,13 @@ function generateReport(){
   const body = `
     <div class="report-header">
       <h1>${title} <span class="badge">PRIVATE</span></h1>
-      <div class="meta">Range: <b>${escSVG(rangeStr)}</b> &nbsp;•&nbsp; Generated: ${escSVG(genStr)} &nbsp;•&nbsp; ${daysSpan} days &nbsp;•&nbsp; ${totalHits} tokes logged</div>
+      <div class="meta">Range: <b>${escSVG(rangeStr)}</b> &nbsp;•&nbsp; Generated: ${escSVG(genStr)} &nbsp;•&nbsp; ${daysSpan} days &nbsp;•&nbsp; ${tokeWord(totalHits)} logged</div>
     </div>
 
     <div class="section">
       <h2>Summary</h2>
       <table class="stats">
-        <tr><td class="lbl">Total tokes logged</td><td class="val">${totalHits}</td>
+        <tr><td class="lbl">Total tokes logged</td><td class="val">${fmtTokes(totalHits)}</td>
             <td class="lbl">Total grams smoked</td><td class="val">${totalGrams.toFixed(2)} g</td></tr>
         <tr><td class="lbl">Estimated cost</td><td class="val">${money2(totalCost)}</td>
             <td class="lbl">Bust-ups in range</td><td class="val">${rBustups.length}</td></tr>
@@ -5077,7 +5096,7 @@ function tbreakInfo(){
   const start = new Date(settings.tbreakStart + "T12:00:00");
   if (isNaN(start.getTime())) return null;
   const days = Math.max(1, Math.floor((Date.now() - start.getTime()) / 86400000) + 1);
-  const hitsSince = log.filter(x => dayKey(x.time) >= settings.tbreakStart).length;
+  const hitsSince = tokesOf(log.filter(x => dayKey(x.time) >= settings.tbreakStart));
   return { start: settings.tbreakStart, goal, days, hitsSince };
 }
 function renderTbreak(){
@@ -5087,7 +5106,7 @@ function renderTbreak(){
   if (!t){ el.style.display = "none"; return; }
   const pct = Math.min(100, (t.days / t.goal) * 100);
   const hitLine = t.hitsSince
-    ? t.hitsSince + " toke" + (t.hitsSince === 1 ? "" : "s") + " logged since it started — just the count."
+    ? tokeWord(t.hitsSince) + " logged since it started — just the count."
     : "No tokes logged since it started.";
   el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
     + '<div style="flex:1;min-width:150px"><b>T-break · day ' + t.days + ' of ' + t.goal + '</b>'
@@ -5394,19 +5413,19 @@ function renderTodayNotes(){
   const limit = +settings.dailyLimit || 0;
   const bank = computeGoalBank();
   const isGrams = usingGrams();
-  const used = isGrams ? dayGrams(dayKey(new Date())) : todaysHits().length;
-  const tokes = todaysHits().length;
+  const used = isGrams ? dayGrams(dayKey(new Date())) : tokesOf(todaysHits());
+  const tokes = tokesOf(todaysHits());
   const g = dayGrams(dayKey(new Date()));
   const leftNote = document.getElementById("todayLeftNote");
   if (leftNote){
     if (!limit) leftNote.textContent = "no daily limit set";
-    else leftNote.textContent = "of " + (isGrams ? gramsFmt(limit + bank) : (limit + bank) + " tokes") + " allowance";
+    else leftNote.textContent = "of " + (isGrams ? gramsFmt(limit + bank) : fmtTokes(limit + bank)) + " allowance";
   }
   const costToday = todaysHits().reduce((a,x)=>a+hitCost(x),0);
   const usedNote = document.getElementById("todayUsedNote");
   if (usedNote){
     usedNote.textContent = isGrams
-      ? `${tokes} toke${tokes===1?"":"s"} · ${money(costToday)}`
+      ? `${tokeWord(tokes)} · ${money(costToday)}`
       : `${gramsFmt(g)} · ${money(costToday)}`;
   }
   const bankNote = document.getElementById("bankNote");
@@ -5416,8 +5435,8 @@ function renderTodayNotes(){
       const yKey = addDaysAgo(1);
       const yUsed = isGrams
         ? log.filter(x=>dayKey(x.time)===yKey).reduce((a,x)=>a+entryAmount(x),0)
-        : log.filter(x=>dayKey(x.time)===yKey).length;
-      bankNote.textContent = `yesterday you used ${isGrams ? gramsFmt(yUsed) : yUsed + " tokes"}`;
+        : tokesOf(log.filter(x=>dayKey(x.time)===yKey));
+      bankNote.textContent = `yesterday you used ${isGrams ? gramsFmt(yUsed) : tokeWord(yUsed)}`;
     } else {
       bankNote.textContent = "unused allowance, not weed";
     }
@@ -5430,14 +5449,14 @@ function renderStreaks(){
 }
 function renderAll(){
   const todayKey=dayKey(new Date()), yKey=addDaysAgo(1);
-  const today=log.filter(x=>dayKey(x.time)===todayKey).length;
-  const yesterday=log.filter(x=>dayKey(x.time)===yKey).length;
+  const today=tokesOf(log.filter(x=>dayKey(x.time)===todayKey));
+  const yesterday=tokesOf(log.filter(x=>dayKey(x.time)===yKey));
   const last7=countByDay(7).counts.reduce((a,b)=>a+b,0);
   const last30=countByDay(30).counts.reduce((a,b)=>a+b,0);
-  setText("today", today);
-  setText("yesterday", yesterday);
+  setText("today", fmtTokes(today));
+  setText("yesterday", fmtTokes(yesterday));
   setText("weekAvg", (last7/7).toFixed(1));
-  setText("monthTotal", last30);
+  setText("monthTotal", fmtTokes(last30));
 
   const sorted=[...log].sort((a,b)=>new Date(a.time)-new Date(b.time));
   const last=sorted[sorted.length-1];
@@ -5770,6 +5789,17 @@ function runSelfTests(){
     settings.sleepEnabled = false;
     eq("no window means the full gap", Math.round(activeMs(base.getTime(), after.getTime()) / 3600000), 10);
     settings.sleepEnabled = true;
+
+    // Toke counts follow weight: a 0.5g joint is ~25 tokes, not 1.
+    settings.defaultGramsPerHit = 0.02; settings.deviceGramsPerHit = {};
+    eq("0.5g joint counts as 25 tokes", entryTokes({amount:0.5, device:"Joint"}), 25);
+    eq("entry without amount still counts as 1 toke", entryTokes({device:"Pipe"}), 1);
+    settings.deviceGramsPerHit = {Joint: 0.25};
+    eq("per-device toke size wins", entryTokes({amount:0.5, device:"Joint"}), 2);
+    settings.deviceGramsPerHit = {};
+    eq("tokeWord plural", tokeWord(25), "25 tokes");
+    eq("tokeWord singular", tokeWord(1), "1 toke");
+    eq("tokeWord fractional", tokeWord(1.5), "1.5 tokes");
 
     eq("avg days between bust-ups", Math.round(avgDaysBetweenBustups()), 2);
     eq("bustupsForDate filters by day", bustupsForDate(addDaysAgo(2)).length, 1);
