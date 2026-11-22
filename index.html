@@ -1921,6 +1921,21 @@ function activeMs(a, b){
   if (!(b > a)) return 0;
   return Math.max(0, (b - a) - sleepOverlapMs(a, b));
 }
+// Awake-time pieces of [a,b], split at local midnights: a break that crosses
+// midnight counts as one gap per day, so "longest gap" never spans days.
+function awakeSegments(a, b){
+  const segs = [];
+  if (!(b > a)) return segs;
+  let cur = a;
+  while (cur < b){
+    const d = new Date(cur); d.setHours(0,0,0,0);
+    const next = new Date(d); next.setDate(next.getDate() + 1);  // DST-safe midnight
+    const end = Math.min(b, next.getTime());
+    segs.push({from: cur, to: end, awake: activeMs(cur, end)});
+    cur = end;
+  }
+  return segs;
+}
 // "1a", "12p" — used wherever an hour is shown so the app never says 13:00.
 function hourLabel(h){
   const hh = ((h % 24) + 24) % 24;
@@ -3669,7 +3684,7 @@ function renderWeeklyReport(){
   // average gap this week
   const times=thisWeek.map(x=>new Date(x.time).getTime()).sort((a,b)=>a-b);
   let avgGap=null;
-  if (times.length>1){ let s=0; for(let i=1;i<times.length;i++) s+=activeMs(times[i-1], times[i]); avgGap=s/(times.length-1); }
+  if (times.length>1){ let s=0,n=0; for(let i=1;i<times.length;i++) for(const seg of awakeSegments(times[i-1], times[i])){ s+=seg.awake; n++; } avgGap=n?s/n:null; }
   const gapTxt = avgGap!=null ? `<div class="tiny">Average gap between tokes this week: ${fmtDuration(avgGap)}. • ${twHits} tokes this week.</div>` : "";
   document.getElementById("weeklyReport").innerHTML = `<p style="font-size:14px;margin:0 0 4px">${esc(changeTxt)}</p>${costTxt}${gapTxt}<p class="tiny" style="margin-top:8px">Factual summary only — no judgment.</p>`;
 }
@@ -3693,7 +3708,7 @@ function renderInsights(){
     let s=0, n=0;
     for(let i=1;i<sorted.length;i++){
       if (sorted[i-1].approx || sorted[i].approx) continue;
-      s += activeMs(+new Date(sorted[i-1].time), +new Date(sorted[i].time)); n++;
+      for (const seg of awakeSegments(+new Date(sorted[i-1].time), +new Date(sorted[i].time))){ s += seg.awake; n++; }
     }
     avgGap = n ? s/n : null;
   }
@@ -5427,15 +5442,16 @@ function renderAll(){
   const sorted=[...log].sort((a,b)=>new Date(a.time)-new Date(b.time));
   const last=sorted[sorted.length-1];
   setText("currentGap", last?fmtDuration(activeMs(+new Date(last.time), Date.now())):"—");
-  let longest=null, longestRaw=null, gapFrom=null, gapTo=null;
+  let longest=null, longestRaw=null, gapSeg=null;
   for(let i=1;i<sorted.length;i++){
     // A guessed time cannot tell us how long a real break was, so skip those pairs.
     if (sorted[i-1].approx || sorted[i].approx) continue;
     const a=+new Date(sorted[i-1].time), b=+new Date(sorted[i].time);
-    const g=activeMs(a,b);
-    if(!longest||g>longest){ longest=g; longestRaw=b-a; gapFrom=sorted[i-1]; gapTo=sorted[i]; }
+    for (const seg of awakeSegments(a,b)){
+      if(!longest||seg.awake>longest){ longest=seg.awake; longestRaw=seg.to-seg.from; gapSeg=seg; }
+    }
   }
-  // Name the two tokes behind the number, so a wrong timestamp can be spotted.
+  // Name the stretch behind the number, so a wrong timestamp can be spotted.
   const shortTs = t => {
     const d = new Date(t);
     return d.toLocaleDateString(undefined,{day:"numeric",month:"short"}) + " "
@@ -5446,15 +5462,15 @@ function renderAll(){
   // on a 13-hour waking day and the number seems broken when it isn't.
   const gapStat = document.getElementById("longestGapStat");
   if (gapStat){
-    gapStat.style.cursor = gapFrom ? "pointer" : "";
-    gapStat.title = gapFrom ? "Tap to open that day" : "";
-    gapStat.onclick = gapFrom ? () => openDay(dayKey(gapFrom.time)) : null;
+    gapStat.style.cursor = gapSeg ? "pointer" : "";
+    gapStat.title = gapSeg ? "Tap to open that day" : "";
+    gapStat.onclick = gapSeg ? () => openDay(dayKey(gapSeg.from)) : null;
   }
   const gapNote = document.getElementById("longestGapNote");
   if (gapNote){
     if (longest == null) gapNote.textContent = "no two tokes to compare yet";
     else if (longestRaw > longest + 60000){
-      gapNote.textContent = `${shortTs(gapFrom.time)} → ${shortTs(gapTo.time)}, sleep removed`;
+      gapNote.textContent = `${shortTs(gapSeg.from)} → ${shortTs(gapSeg.to)}, sleep removed`;
     } else {
       gapNote.textContent = "longest break between tokes";
     }
@@ -5744,6 +5760,10 @@ function runSelfTests(){
     eq("a break over a skipped day keeps only awake hours", fmtDuration(activeMs(ov1, ov3)), "15h 0m");
     settings.sleepStart = "01:00"; settings.sleepEnd = "10:00";
     eq("sleep window 1am-10am on the same break", fmtDuration(activeMs(ov1, ov2)), "8h 22m");
+    const segs = awakeSegments(ov1, ov2);
+    eq("a break crossing midnight splits into per-day gaps", segs.length, 2);
+    eq("the after-midnight piece keeps only its own awake hours", fmtDuration(segs[1].awake), "6h 22m");
+    eq("the before-midnight piece runs to midnight", segs[0].to - segs[0].from, 2 * 3600000);
     const base = new Date(); base.setHours(0, 30, 0, 0);
     const after = new Date(base.getTime() + 10 * 3600 * 1000);   // 00:30 -> 10:30 = 10h
     eq("sleep hours excluded from a gap", Math.round(activeMs(base.getTime(), after.getTime()) / 3600000), 1);
