@@ -42,8 +42,8 @@
   ],
   "shortcuts": [
     {
-      "name": "Log a toke",
-      "short_name": "Log toke",
+      "name": "Take a Toke",
+      "short_name": "Take toke",
       "url": "./?action=toke",
       "icons": [
         {
