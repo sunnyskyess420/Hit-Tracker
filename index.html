@@ -345,6 +345,10 @@
   @media(min-width:600px){.sheet{border-radius:18px}}
   .sheet h2{position:sticky;top:0;background:var(--surface);margin:-4px -4px 8px;padding:4px;z-index:1}
   .sheet-close{float:right;background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1}
+  /* Direct-child close buttons pin to the top of the scrolling sheet so an
+     exit is always visible on long content. The Settings sheet keeps its
+     own header layout (close lives in .sheet-head-actions, not a direct child). */
+  .sheet > .sheet-close{position:sticky;top:0;display:block;width:max-content;margin-left:auto;background:var(--surface);padding:4px 8px;border-radius:8px;z-index:5}
   /* Sticky settings header: Save button stays pinned at the top while scrolling */
   .sheet-head{position:sticky;top:0;background:var(--surface);margin:-4px -4px 8px;padding:8px 4px 10px;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border)}
   .sheet-head h2{position:static;margin:0;padding:0;background:transparent}
@@ -1000,6 +1004,7 @@
     <h2 id="dayModalTitle">Day</h2>
     <div id="dayModalBody"></div>
     <button class="secondary" style="margin-top:10px;width:100%" onclick="openReupEditor(dayModalKey)">» Mark reup for this day</button>
+    <button class="secondary" style="margin-top:8px;width:100%" onclick="closeModal('dayModal')">Done</button>
   </div>
 </div>
 
