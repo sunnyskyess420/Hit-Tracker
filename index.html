@@ -647,20 +647,6 @@
       <button class="secondary" onclick="openCheckin()">Daily check-in</button>
     </div>
 
-    <!-- Bust up / Reup — side by side -->
-    <div class="row">
-      <!-- Bust up — your X on the calendar (amount comes from Settings → Bust-up) -->
-      <button class="bustup-btn" id="bustupBtn" onclick="bustUp('')">
-        <svg class="btn-ico" aria-hidden="true"><use href="#ico-grind"/></svg>
-        <span id="bustupLabel">Bust up 2g</span>
-      </button>
-      <!-- Reup — marks the calendar when you restock -->
-      <button class="reup-btn" onclick="openStash()">
-        <svg class="btn-ico" aria-hidden="true"><use href="#ico-reup"/></svg>
-        <span>Reup</span>
-      </button>
-    </div>
-
     <!-- ===== TODAY CARD (limit ring + key today numbers) — lives in the log card so the ring stays on the first screen ===== -->
     <div id="limitCard">
       <h2>Today</h2>
@@ -860,6 +846,68 @@
   </div>
 
 <div class="card">
+    <h2>Weed left</h2>
+    <div class="grid">
+      <div class="stat"><span class="stat-l">On hand</span><b id="stashGrams">—</b><small class="stat-d" id="stashLasts">nothing tracked yet</small></div>
+      <div class="stat"><span class="stat-l">Nugs (whole)</span><b id="stashNugs">—</b><small class="stat-d">not ground yet</small></div>
+      <div class="stat"><span class="stat-l">Ground (ready)</span><b id="stashGround">—</b><small class="stat-d">smoke this first</small></div>
+      <div class="stat"><span class="stat-l">Tokes remaining</span><b id="stashHitsLeft">—</b><small class="stat-d">at your grams per toke</small></div>
+      <div class="stat"><span class="stat-l">Effective $/g</span><b id="stashPricePerG">—</b><small class="stat-d">what you actually paid</small></div>
+      <div class="stat"><span class="stat-l">Total spent</span><b id="stashSpent">—</b><small class="stat-d">all reups</small></div>
+    </div>
+
+    <div id="stashLowWarning" style="display:none;margin-top:8px;padding:8px;background:var(--surface2);border-left:4px solid var(--red);border-radius:6px;font-size:13px;color:var(--text)">
+      ⚠️ <b>Low stash:</b> You're under <span id="stashLowThresh"></span>g on hand — time to reup.
+    </div>
+
+    <div id="lastBatch" class="tiny" style="display:none;margin-top:8px"></div>
+
+    <div id="weighNudge" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--amber);border-radius:6px;font-size:13px;color:var(--text)">
+      <div id="weighNudgeText"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="secondary" onclick="openCount()">Count it</button>
+        <button class="secondary" onclick="dismissWeighNudge()">Not now</button>
+      </div>
+    </div>
+
+    <div id="groundNudge" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--green-bright);border-radius:6px;font-size:13px;color:var(--text)">
+      <div id="groundNudgeText"></div>
+      <button class="secondary" id="groundNudgeBtn" style="margin-top:8px;width:100%;background:var(--green);color:#fff;font-weight:700" onclick="bustUp('')">Bust up</button>
+    </div>
+
+    <!-- Clear breakdown of the math -->
+    <div id="weedMath" class="weed-math"></div>
+
+    <div class="gph-row">
+      <span class="tiny" style="flex:1">Grams per toke</span>
+      <button class="gph-btn" onclick="adjustGph(-0.01)" aria-label="Decrease grams per toke by 0.01" title="−0.01">−</button>
+      <b id="gphDisplay">0.02g</b>
+      <button class="gph-btn" onclick="adjustGph(0.01)" aria-label="Increase grams per toke by 0.01" title="+0.01">+</button>
+    </div>
+    <p class="tiny" id="gphNote" style="margin-top:4px"></p>
+
+    <!-- Bust up / Reup — grinding and restocking live with the stash numbers -->
+    <div class="row">
+      <!-- Bust up — your X on the calendar (amount comes from Settings → Bust-up) -->
+      <button class="bustup-btn" id="bustupBtn" onclick="bustUp('')">
+        <svg class="btn-ico" aria-hidden="true"><use href="#ico-grind"/></svg>
+        <span id="bustupLabel">Bust up</span>
+      </button>
+      <!-- Reup — marks the calendar when you restock -->
+      <button class="reup-btn" onclick="openStash()">
+        <svg class="btn-ico" aria-hidden="true"><use href="#ico-reup"/></svg>
+        <span>Reup</span>
+      </button>
+    </div>
+
+    <div class="row">
+      <button class="secondary" onclick="openStash()">Manage stash</button>
+      <button class="secondary" onclick="openGiveaway()">Give away / sell</button>
+      <button class="secondary" onclick="openCount()">Count it</button>
+    </div>
+  </div>
+
+<div class="card">
     <h2>Patterns</h2>
     <div class="pat-scope" id="patScope"></div>
 
@@ -903,54 +951,6 @@
   </div>
 
 <div class="card"><h2>Mood & sleep vs usage</h2><div id="correlations"></div><p class="tiny" style="margin-top:8px">Correlation is not causation — for personal awareness only. Not medical advice.</p></div>
-
-<div class="card">
-    <h2>Weed left</h2>
-    <div class="grid">
-      <div class="stat"><span class="stat-l">On hand</span><b id="stashGrams">—</b><small class="stat-d" id="stashLasts">nothing tracked yet</small></div>
-      <div class="stat"><span class="stat-l">Nugs (whole)</span><b id="stashNugs">—</b><small class="stat-d">not ground yet</small></div>
-      <div class="stat"><span class="stat-l">Ground (ready)</span><b id="stashGround">—</b><small class="stat-d">smoke this first</small></div>
-      <div class="stat"><span class="stat-l">Tokes remaining</span><b id="stashHitsLeft">—</b><small class="stat-d">at your grams per toke</small></div>
-      <div class="stat"><span class="stat-l">Effective $/g</span><b id="stashPricePerG">—</b><small class="stat-d">what you actually paid</small></div>
-      <div class="stat"><span class="stat-l">Total spent</span><b id="stashSpent">—</b><small class="stat-d">all reups</small></div>
-    </div>
-
-    <div id="stashLowWarning" style="display:none;margin-top:8px;padding:8px;background:var(--surface2);border-left:4px solid var(--red);border-radius:6px;font-size:13px;color:var(--text)">
-      ⚠️ <b>Low stash:</b> You're under <span id="stashLowThresh"></span>g on hand — time to reup.
-    </div>
-
-    <div id="lastBatch" class="tiny" style="display:none;margin-top:8px"></div>
-
-    <div id="weighNudge" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--amber);border-radius:6px;font-size:13px;color:var(--text)">
-      <div id="weighNudgeText"></div>
-      <div class="row" style="margin-top:8px">
-        <button class="secondary" onclick="openCount()">Count it</button>
-        <button class="secondary" onclick="dismissWeighNudge()">Not now</button>
-      </div>
-    </div>
-
-    <div id="groundNudge" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-left:4px solid var(--green-bright);border-radius:6px;font-size:13px;color:var(--text)">
-      <div id="groundNudgeText"></div>
-      <button class="secondary" id="groundNudgeBtn" style="margin-top:8px;width:100%;background:var(--green);color:#fff;font-weight:700" onclick="bustUp('')">Bust up</button>
-    </div>
-
-    <!-- Clear breakdown of the math -->
-    <div id="weedMath" class="weed-math"></div>
-
-    <div class="gph-row">
-      <span class="tiny" style="flex:1">Grams per toke</span>
-      <button class="gph-btn" onclick="adjustGph(-0.01)" aria-label="Decrease grams per toke by 0.01" title="−0.01">−</button>
-      <b id="gphDisplay">0.02g</b>
-      <button class="gph-btn" onclick="adjustGph(0.01)" aria-label="Increase grams per toke by 0.01" title="+0.01">+</button>
-    </div>
-    <p class="tiny" id="gphNote" style="margin-top:4px"></p>
-
-    <div class="row">
-      <button class="secondary" onclick="openStash()">Manage stash</button>
-      <button class="secondary" onclick="openGiveaway()">Give away / sell</button>
-      <button class="secondary" onclick="openCount()">Count it</button>
-    </div>
-  </div>
 
 <div class="card">
     <h2>Vape &amp; concentrate</h2>
@@ -5541,7 +5541,11 @@ function renderAll(){
   renderTbreak();
   renderCheckinNudge();
   renderBustupStats();
-  setText("bustupLabel", "Bust up " + bustupLabel());
+  // Label stays "Bust up" — the gram amount lives in Settings and changes,
+  // so it goes on the tooltip instead of the button face.
+  setText("bustupLabel", "Bust up");
+  const bustupBtnEl = document.getElementById("bustupBtn");
+  if (bustupBtnEl) bustupBtnEl.title = "Bust up " + bustupLabel();
 
   renderBackupReminder();
 
