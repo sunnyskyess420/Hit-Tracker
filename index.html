@@ -644,6 +644,17 @@
       <button class="secondary" onclick="openCheckin()">Daily check-in</button>
     </div>
 
+    <!-- Bust up — your X on the calendar (amount comes from Settings → Bust-up) -->
+    <button class="bustup-btn" id="bustupBtn" onclick="bustUp('')">
+      <svg class="btn-ico" aria-hidden="true"><use href="#ico-grind"/></svg>
+      <span id="bustupLabel">Bust up 2g</span>
+    </button>
+    <!-- Reup — marks the calendar when you restock -->
+    <button class="reup-btn" onclick="openStash()">
+      <svg class="btn-ico" aria-hidden="true"><use href="#ico-reup"/></svg>
+      <span>Reup (add to stash)</span>
+    </button>
+
     <!-- ===== TODAY CARD (limit ring + key today numbers) — lives in the log card so the ring stays on the first screen ===== -->
     <div id="limitCard">
       <h2>Today</h2>
@@ -660,24 +671,16 @@
         <div class="limit-info">
           <div id="limitNotice"></div>
           <div class="grid" style="margin-top:8px">
-            <div class="stat"><span class="stat-l">Left today</span><b id="todayLeft">—</b><small class="stat-d" id="todayLeftNote">of your daily limit</small></div>
-            <div class="stat"><span class="stat-l">Used today</span><b id="todayUsed">0</b><small class="stat-d" id="todayUsedNote">—</small></div>
             <div class="stat"><span class="stat-l">Extra from yesterday</span><b id="goalBankStat">—</b><small class="stat-d" id="bankNote">unused allowance, not weed</small></div>
             <div class="stat"><span class="stat-l">Since last toke</span><b id="currentGap">—</b><small class="stat-d">awake time</small></div>
           </div>
         </div>
       </div>
+      <div class="grid" style="margin-top:8px">
+        <div class="stat"><span class="stat-l">Left today</span><b id="todayLeft">—</b><small class="stat-d" id="todayLeftNote">of your daily limit</small></div>
+        <div class="stat"><span class="stat-l">Used today</span><b id="todayUsed">0</b><small class="stat-d" id="todayUsedNote">—</small></div>
+      </div>
     </div>
-    <!-- Bust up — your X on the calendar (amount comes from Settings → Bust-up) -->
-    <button class="bustup-btn" id="bustupBtn" onclick="bustUp('')">
-      <svg class="btn-ico" aria-hidden="true"><use href="#ico-grind"/></svg>
-      <span id="bustupLabel">Bust up 2g</span>
-    </button>
-    <!-- Reup — marks the calendar when you restock -->
-    <button class="reup-btn" onclick="openStash()">
-      <svg class="btn-ico" aria-hidden="true"><use href="#ico-reup"/></svg>
-      <span>Reup (add to stash)</span>
-    </button>
 
     <div id="details" class="hidden">
       <label>Toke size</label>
@@ -2285,8 +2288,12 @@ function deleteEntry(id){
 function toggleDetails(){
   const d = document.getElementById("details");
   d.classList.toggle("hidden");
-  if (!d.classList.contains("hidden")) prefillDeviceAmount();
-  renderTagChips();
+  if (!d.classList.contains("hidden")){
+    prefillDeviceAmount();
+    renderTagChips();
+    // The panel expands inside the card, often below the fold — bring it up.
+    d.scrollIntoView({behavior:"smooth", block:"nearest"});
+  }
 }
 // Show the remembered grams for the selected device, so the number is visible
 // rather than silently reused.
