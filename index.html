@@ -623,32 +623,6 @@
     </div>
 
   <!-- ===== LOG CARD ===== -->
-  <div class="card" id="limitCard">
-    <h2>Today</h2>
-    <div class="limit-wrap">
-      <div class="ring-box">
-        <svg viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r="52" fill="none" stroke="#2a2f36" stroke-width="10"/>
-          <circle id="ringArc" cx="60" cy="60" r="52" fill="none" stroke="var(--green-bright)" stroke-width="10"
-            stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round"
-            transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .5s, stroke .3s"/>
-        </svg>
-        <div class="ring-label"><b id="ringCount">0</b><span id="ringSub">no limit set</span></div>
-      </div>
-      <div class="limit-info">
-        <div id="limitNotice"></div>
-        <div class="grid" style="margin-top:8px">
-          <div class="stat"><span class="stat-l">Left today</span><b id="todayLeft">—</b><small class="stat-d" id="todayLeftNote">of your daily limit</small></div>
-          <div class="stat"><span class="stat-l">Used today</span><b id="todayUsed">0</b><small class="stat-d" id="todayUsedNote">—</small></div>
-          <div class="stat"><span class="stat-l">Extra from yesterday</span><b id="goalBankStat">—</b><small class="stat-d" id="bankNote">unused allowance, not weed</small></div>
-          <div class="stat"><span class="stat-l">Since last toke</span><b id="currentGap">—</b><small class="stat-d">awake time</small></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== STASH CARD (two-stage: nugs → ground → smoked) ===== -->
-
 <div class="card">
     <button id="logButton">Take a Toke</button>
     <div class="quickrow" id="quickButtons"></div>
@@ -736,6 +710,30 @@
   </div>
 
   <!-- ===== TODAY CARD (limit ring + key today numbers + stash summary) ===== -->
+
+  <div class="card" id="limitCard">
+    <h2>Today</h2>
+    <div class="limit-wrap">
+      <div class="ring-box">
+        <svg viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#2a2f36" stroke-width="10"/>
+          <circle id="ringArc" cx="60" cy="60" r="52" fill="none" stroke="var(--green-bright)" stroke-width="10"
+            stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round"
+            transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .5s, stroke .3s"/>
+        </svg>
+        <div class="ring-label"><b id="ringCount">0</b><span id="ringSub">no limit set</span></div>
+      </div>
+      <div class="limit-info">
+        <div id="limitNotice"></div>
+        <div class="grid" style="margin-top:8px">
+          <div class="stat"><span class="stat-l">Left today</span><b id="todayLeft">—</b><small class="stat-d" id="todayLeftNote">of your daily limit</small></div>
+          <div class="stat"><span class="stat-l">Used today</span><b id="todayUsed">0</b><small class="stat-d" id="todayUsedNote">—</small></div>
+          <div class="stat"><span class="stat-l">Extra from yesterday</span><b id="goalBankStat">—</b><small class="stat-d" id="bankNote">unused allowance, not weed</small></div>
+          <div class="stat"><span class="stat-l">Since last toke</span><b id="currentGap">—</b><small class="stat-d">awake time</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
 <div class="card">
     <h2>Calendar</h2>
