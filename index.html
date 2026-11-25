@@ -96,6 +96,8 @@
   /* ---------- Cards ---------- */
   .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px}
   h2{font-size:15px;margin:0 0 10px;font-weight:650}
+  /* Card titles center as a group: leaf ::before + name + leaf ::after. */
+  .card h2{text-align:center}
   /* Decorative cannabis-leaf icons flanking every section title.
      Inline SVG (defined once via data URI) so it renders identically
      on every device. h2:not([style]) skips the tiny muted sub-labels. */
@@ -115,6 +117,15 @@
     header.topbar h1{font-size:16px}
     header.topbar .ico-btn{width:34px;height:34px}
     header.topbar h1::before{width:1.6em;height:1.6em}
+  }
+  /* Card titles: flex row keeps leaf + name + leaf on one centered line
+     (plain inline content let the trailing leaf drop a line on long titles).
+     Slightly smaller leaves + font leave room for e.g. "Daily usage — last
+     14 days"; nowrap guarantees a single line, tiny screens shrink further. */
+  .card h2{display:flex;align-items:center;justify-content:center;gap:2px;font-size:14px;white-space:nowrap}
+  .card h2::before,.card h2::after{width:1.5em;height:1.5em;margin:0 .15em}
+  @media (max-width:360px){
+    .card h2{font-size:12.5px}
   }
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
   .stat{background:var(--surface2);border-radius:var(--radius-sm);padding:10px;text-align:center}
@@ -217,13 +228,13 @@
   .range-presets button.active{background:var(--green);border-color:var(--green);color:#fff}
 
   /* ---------- Limit ring ---------- */
-  .limit-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .limit-wrap{display:flex;flex-direction:column;align-items:center;gap:14px}
   .ring-box{position:relative;width:120px;height:120px;flex:0 0 120px}
   .ring-box svg{width:100%;height:100%}
   .ring-box .ring-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
   .ring-box .ring-label b{font-size:22px;font-weight:800}
   .ring-box .ring-label span{font-size:10px;color:var(--muted)}
-  .limit-info{flex:1;min-width:160px}
+  .limit-info{width:100%}
   .notice{padding:10px 12px;border-radius:10px;font-size:13px;margin-top:8px}
   .notice.warn{background:#2a2418;border:1px solid #4a3a18;color:#ffd591}
   .notice.at{background:#2a2018;border:1px solid #4a2a18;color:#ffb98a}
@@ -626,6 +637,32 @@
 <div class="card">
     <button id="logButton">Take a Toke</button>
     <div class="quickrow" id="quickButtons"></div>
+
+    <!-- ===== TODAY CARD (limit ring + key today numbers) — lives in the log card so the ring sits right under the button ===== -->
+    <div id="limitCard">
+      <h2>Today</h2>
+      <div class="limit-wrap">
+        <div class="ring-box">
+          <svg viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#2a2f36" stroke-width="10"/>
+            <circle id="ringArc" cx="60" cy="60" r="52" fill="none" stroke="var(--green-bright)" stroke-width="10"
+              stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round"
+              transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .5s, stroke .3s"/>
+          </svg>
+          <div class="ring-label"><b id="ringCount">0</b><span id="ringSub">no limit set</span></div>
+        </div>
+        <div class="limit-info">
+          <div id="limitNotice"></div>
+          <div class="grid" style="margin-top:8px">
+            <div class="stat"><span class="stat-l">Left today</span><b id="todayLeft">—</b><small class="stat-d" id="todayLeftNote">of your daily limit</small></div>
+            <div class="stat"><span class="stat-l">Used today</span><b id="todayUsed">0</b><small class="stat-d" id="todayUsedNote">—</small></div>
+            <div class="stat"><span class="stat-l">Extra from yesterday</span><b id="goalBankStat">—</b><small class="stat-d" id="bankNote">unused allowance, not weed</small></div>
+            <div class="stat"><span class="stat-l">Since last toke</span><b id="currentGap">—</b><small class="stat-d">awake time</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="row">
       <button class="secondary" onclick="undoLast()">Undo last</button>
       <button class="secondary" onclick="toggleDetails()">Add details</button>
@@ -706,32 +743,6 @@
       <input type="number" id="amountInput" step="0.01" min="0" placeholder="auto">
       <label>Cost override (<span id="curSym">$</span>) — leave blank to auto-calc</label>
       <input type="number" id="costOverride" step="0.01" min="0" placeholder="auto">
-    </div>
-  </div>
-
-  <!-- ===== TODAY CARD (limit ring + key today numbers + stash summary) ===== -->
-
-  <div class="card" id="limitCard">
-    <h2>Today</h2>
-    <div class="limit-wrap">
-      <div class="ring-box">
-        <svg viewBox="0 0 120 120">
-          <circle cx="60" cy="60" r="52" fill="none" stroke="#2a2f36" stroke-width="10"/>
-          <circle id="ringArc" cx="60" cy="60" r="52" fill="none" stroke="var(--green-bright)" stroke-width="10"
-            stroke-dasharray="326.7" stroke-dashoffset="326.7" stroke-linecap="round"
-            transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .5s, stroke .3s"/>
-        </svg>
-        <div class="ring-label"><b id="ringCount">0</b><span id="ringSub">no limit set</span></div>
-      </div>
-      <div class="limit-info">
-        <div id="limitNotice"></div>
-        <div class="grid" style="margin-top:8px">
-          <div class="stat"><span class="stat-l">Left today</span><b id="todayLeft">—</b><small class="stat-d" id="todayLeftNote">of your daily limit</small></div>
-          <div class="stat"><span class="stat-l">Used today</span><b id="todayUsed">0</b><small class="stat-d" id="todayUsedNote">—</small></div>
-          <div class="stat"><span class="stat-l">Extra from yesterday</span><b id="goalBankStat">—</b><small class="stat-d" id="bankNote">unused allowance, not weed</small></div>
-          <div class="stat"><span class="stat-l">Since last toke</span><b id="currentGap">—</b><small class="stat-d">awake time</small></div>
-        </div>
-      </div>
     </div>
   </div>
 
