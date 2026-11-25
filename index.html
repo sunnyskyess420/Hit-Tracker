@@ -638,7 +638,13 @@
     <button id="logButton">Take a Toke</button>
     <div class="quickrow" id="quickButtons"></div>
 
-    <!-- ===== TODAY CARD (limit ring + key today numbers) — lives in the log card so the ring sits right under the button ===== -->
+    <div class="row">
+      <button class="secondary" onclick="undoLast()">Undo last</button>
+      <button class="secondary" onclick="toggleDetails()">Add details</button>
+      <button class="secondary" onclick="openCheckin()">Daily check-in</button>
+    </div>
+
+    <!-- ===== TODAY CARD (limit ring + key today numbers) — lives in the log card so the ring stays on the first screen ===== -->
     <div id="limitCard">
       <h2>Today</h2>
       <div class="limit-wrap">
@@ -661,12 +667,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="row">
-      <button class="secondary" onclick="undoLast()">Undo last</button>
-      <button class="secondary" onclick="toggleDetails()">Add details</button>
-      <button class="secondary" onclick="openCheckin()">Daily check-in</button>
     </div>
     <!-- Bust up — your X on the calendar (amount comes from Settings → Bust-up) -->
     <button class="bustup-btn" id="bustupBtn" onclick="bustUp('')">
@@ -1394,7 +1394,7 @@ const BUSTUP_MIN_G = 0.1, BUSTUP_MAX_G = 28, BUSTUP_DEFAULT_G = 2;
 
 function defaultSettings(){
   return {
-    version: 8,
+    version: 9,
     limitUnit: "grams",       // "grams" (weight) or "tokes" (count)
     dailyLimit: 1,            // in limitUnit — 1 gram/day default; 0 = off
     warnAt80: true,
@@ -1740,6 +1740,19 @@ function loadAll(){
     // v8: the bust-up amount became a setting (it was hardcoded to 2g before)
     settings.bustupGrams = clampBustupGrams(settings.bustupGrams);
     settings.version = 8;
+    saveSettingsObj();
+  }
+  if (oldVer < 9){
+    // v9: user-facing "hit(s)" -> "toke(s)" in quick-button labels
+    settings.quickButtons = (Array.isArray(settings.quickButtons) ? settings.quickButtons : []).map(b => {
+      if (b && typeof b.label === "string"){
+        b.label = b.label
+          .replace(/\bhits\b/gi, m => m[0] === "H" ? "Tokes" : "tokes")
+          .replace(/\bhit\b/gi,  m => m[0] === "H" ? "Toke"  : "toke");
+      }
+      return b;
+    });
+    settings.version = 9;
     saveSettingsObj();
   }
 
