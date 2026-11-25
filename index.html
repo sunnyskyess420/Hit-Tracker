@@ -182,6 +182,9 @@
   }
   .reup-btn:active{transform:scale(.99);background:#311b92}
   .bustup-btn,.reup-btn{display:flex;align-items:center;justify-content:center;gap:9px}
+  /* Side-by-side pair inside .row: share the width equally, drop their
+     own top margins (the row supplies the spacing). */
+  .row .bustup-btn,.row .reup-btn{flex:1 1 0;width:auto;margin-top:0}
   .btn-ico{width:22px;height:22px;flex:0 0 22px;display:block}
   .ico-inline{width:17px;height:17px;display:inline-block;vertical-align:-3px;margin-right:6px}
   .quickrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
@@ -644,16 +647,19 @@
       <button class="secondary" onclick="openCheckin()">Daily check-in</button>
     </div>
 
-    <!-- Bust up — your X on the calendar (amount comes from Settings → Bust-up) -->
-    <button class="bustup-btn" id="bustupBtn" onclick="bustUp('')">
-      <svg class="btn-ico" aria-hidden="true"><use href="#ico-grind"/></svg>
-      <span id="bustupLabel">Bust up 2g</span>
-    </button>
-    <!-- Reup — marks the calendar when you restock -->
-    <button class="reup-btn" onclick="openStash()">
-      <svg class="btn-ico" aria-hidden="true"><use href="#ico-reup"/></svg>
-      <span>Reup (add to stash)</span>
-    </button>
+    <!-- Bust up / Reup — side by side -->
+    <div class="row">
+      <!-- Bust up — your X on the calendar (amount comes from Settings → Bust-up) -->
+      <button class="bustup-btn" id="bustupBtn" onclick="bustUp('')">
+        <svg class="btn-ico" aria-hidden="true"><use href="#ico-grind"/></svg>
+        <span id="bustupLabel">Bust up 2g</span>
+      </button>
+      <!-- Reup — marks the calendar when you restock -->
+      <button class="reup-btn" onclick="openStash()">
+        <svg class="btn-ico" aria-hidden="true"><use href="#ico-reup"/></svg>
+        <span>Reup</span>
+      </button>
+    </div>
 
     <!-- ===== TODAY CARD (limit ring + key today numbers) — lives in the log card so the ring stays on the first screen ===== -->
     <div id="limitCard">
