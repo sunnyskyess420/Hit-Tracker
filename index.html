@@ -17,6 +17,18 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
+  window.__installPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    window.__installPrompt = e;
+    const b = document.getElementById('installBtn');
+    if (b) b.style.display = '';
+  });
+  window.addEventListener('appinstalled', () => {
+    window.__installPrompt = null;
+    const b = document.getElementById('installBtn');
+    if (b) b.style.display = 'none';
+  });
 </script>
 
 <!--
@@ -1202,6 +1214,12 @@
     <div class="row">
       <button class="secondary" onclick="exportCSV()">Export CSV</button>
       <button class="secondary" onclick="openReportModal()">🖨️ Print report</button>
+    </div>
+    <h2 style="font-size:13px;color:var(--muted);margin-top:14px">Install</h2>
+    <p class="tiny" id="installHint">Install this as an app so it opens in its own window and works offline.</p>
+    <div class="row">
+      <button class="secondary" id="installBtn" style="display:none" onclick="promptInstall()">Install app</button>
+      <button class="secondary" onclick="showInstallHelp()">How to install</button>
     </div>
     <p class="tiny" style="margin-top:14px">Clearing removes every toke, stash entry and check-in from this browser. It cannot be undone — save a backup first.</p>
     <div class="row">
@@ -4809,6 +4827,25 @@ function generateReport(){
   w.onload = function(){ setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){} }, 500); };
 }
 
+async function promptInstall(){
+  const p = window.__installPrompt;
+  if (!p){ showInstallHelp(); return; }
+  window.__installPrompt = null;
+  p.prompt();
+  const choice = await p.userChoice.catch(() => null);
+  const b = document.getElementById("installBtn");
+  if (b) b.style.display = "none";
+  toast(choice && choice.outcome === "accepted" ? "Installing…" : "No problem — you can install any time");
+}
+function showInstallHelp(){
+  const ua = navigator.userAgent;
+  let how;
+  if (/Edg\//.test(ua)) how = "In Edge: menu (\u22ef) \u2192 Apps \u2192 Install this site as an app.";
+  else if (/Chrome\//.test(ua)) how = "In Chrome: the install icon in the address bar, or menu \u22ee \u2192 Cast, save and share \u2192 Install page as app.";
+  else if (/Safari/.test(ua)) how = "On iPhone/iPad: Share \u2192 Add to Home Screen. On Mac Safari: File \u2192 Add to Dock.";
+  else how = "Open the browser menu and look for \u201cInstall app\u201d or \u201cAdd to Home screen\u201d.";
+  toast(how);
+}
 function exportCSV(){
   settings.lastBackup = new Date().toISOString();
   saveSettingsObj();
@@ -5550,6 +5587,10 @@ function renderAll(){
   }
   renderStreaks();
 
+  if (window.__installPrompt){
+    const ib = document.getElementById("installBtn");
+    if (ib) ib.style.display = "";
+  }
   renderLimit();
   renderTodayNotes();
   renderOtherStash();
