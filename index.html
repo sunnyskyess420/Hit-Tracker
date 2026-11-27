@@ -1219,7 +1219,8 @@
     <p class="tiny">Fix what was recorded. Tick the box below if the time is a guess.</p>
     <input type="hidden" id="editHitId">
     <label>When</label>
-    <input type="datetime-local" id="editHitTime">
+    <input type="datetime-local" id="editHitTime" oninput="updateEditTimeHint()">
+    <p class="tiny" id="editTimeHint" style="margin-top:4px"></p>
     <label style="display:flex;align-items:center;gap:8px;margin-top:8px">
       <input type="checkbox" id="editHitApprox" style="width:auto;margin:0">
       <span>Time is a guess — leave it out of gap and hour stats</span>
@@ -1973,6 +1974,11 @@ function awakeSegments(a, b){
   return segs;
 }
 // "1a", "12p" — used wherever an hour is shown so the app never says 13:00.
+// Always 12-hour, whatever the phone's locale is set to.
+function fmtClock(t){
+  const d = t instanceof Date ? t : new Date(t);
+  return d.toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit", hour12:true});
+}
 function hourLabel(h){
   const hh = ((h % 24) + 24) % 24;
   const ap = hh < 12 ? "a" : "p";
@@ -2976,12 +2982,20 @@ function openHitEdit(id){
   document.getElementById("editHitNote").value = e.note || "";
   const d = new Date(e.time);
   const p2 = n => String(n).padStart(2, "0");
+  updateEditTimeHint();
   const apxEl = document.getElementById("editHitApprox");
   if (apxEl) apxEl.checked = !!e.approx;
   document.getElementById("editHitTime").value =
     d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate())
     + "T" + p2(d.getHours()) + ":" + p2(d.getMinutes());
   openModal("editHitModal");
+}
+function updateEditTimeHint(){
+  const el = document.getElementById("editTimeHint");
+  if (!el) return;
+  const v = document.getElementById("editHitTime").value;
+  const d = new Date(v);
+  el.textContent = v && !isNaN(d.getTime()) ? fmtClock(d) : "";
 }
 function saveHitEdit(){
   const id = document.getElementById("editHitId").value;
@@ -3543,7 +3557,7 @@ function openDay(k){
       const tagline = (x.tags||[]).map(t=>`<i>${esc(t)}</i>`).join("");
       return `<div class="entry"><div class="meta">
         <div class="entry-top">
-          <span class="entry-time">${d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}</span>
+          <span class="entry-time">${fmtClock(d)}</span>
           <span class="entry-g">${gramsFmt(entryAmount(x))}</span>
         </div>
         <small class="entry-what">${esc(x.device)} · ${esc(x.size)}${tkNote}${hitCost(x)?` · ${money(hitCost(x))}`:""}</small>
@@ -4005,7 +4019,7 @@ function renderEntries(){
     const tagline=(x.tags||[]).map(t=>{const c=tagColor(t);return `<i style="background:${c}22;color:${c};border:1px solid ${c}55">${esc(t)}</i>`;}).join("");
     return `<div class="entry"><div class="meta">
       <div class="entry-top">
-        <span class="entry-time">${d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})}</span>
+        <span class="entry-time">${fmtClock(d)}</span>
         <span class="entry-g">${gramsFmt(entryAmount(x))}</span>
       </div>
       <small class="entry-what">${esc(x.device)} · ${esc(x.size)}${tkNote}${hitCost(x)?` · ${money(hitCost(x))}`:""}</small>
@@ -5514,7 +5528,7 @@ function renderAll(){
   const shortTs = t => {
     const d = new Date(t);
     return d.toLocaleDateString(undefined,{day:"numeric",month:"short"}) + " "
-         + d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+         + fmtClock(d);
   };
   setText("longestGap", fmtDuration(longest));
   // If the break spans a day with no tokes, say so. Otherwise 17h looks impossible
@@ -5686,7 +5700,8 @@ function runSelfTests(){
     eq("stash net 28g", b.net, 28);
     eq("stash nugs 28g when nothing ground", b.nugsOnHand, 28);
     eq("stash ground starts at 0", b.groundReady, 0);
-    bustups = [{id:"t2", date:dayKey(new Date()), amount:2, note:""}];
+    // Grind an hour ago so the toke below always replays after it, whatever the clock says.
+    bustups = [{id:"t2", date:dayKey(new Date()), time:new Date(Date.now()-3600000).toISOString(), amount:2, note:""}];
     b = stashBreakdown();
     eq("bust-up moves 2g into ground", b.groundReady, 2);
     eq("bust-up leaves 26g as nugs", b.nugsOnHand, 26);
