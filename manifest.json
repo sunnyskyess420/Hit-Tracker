@@ -6,8 +6,7 @@
   "scope": "./",
   "display": "standalone",
   "display_override": [
-    "standalone",
-    "minimal-ui"
+    "standalone"
   ],
   "launch_handler": {
     "client_mode": "focus-existing"
@@ -78,6 +77,5 @@
       ]
     }
   ],
-  "id": "/Hit-Tracker/",
   "prefer_related_applications": false
 }
